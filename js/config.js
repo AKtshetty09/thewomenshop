@@ -16,6 +16,9 @@ window.SHOP_CONFIG = {
   instagramFollowers: "26.8K",
   facebookUrl: "https://www.facebook.com/share/1KQErP9LVb/",
   location: "Ongole, Andhra Pradesh",
+  // Opens when someone taps the location. To show your exact shop instead of the city:
+  // open Google Maps, find your shop, tap Share → Copy link, and paste it here.
+  mapsUrl: "https://www.google.com/maps/search/?api=1&query=Ongole%2C+Andhra+Pradesh",
   email: "", // add an email later if you want it shown in the footer
 
   // Shown in the bag and on every product page

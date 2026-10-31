@@ -118,7 +118,7 @@
         <a href="${waLink("Hi " + C.name + "!")}" target="_blank" rel="noopener">${icon("whatsapp")}<span><small>WhatsApp</small>${esc(C.phone)}</span></a>
         <a href="${igProfile}" target="_blank" rel="noopener">${icon("instagram")}<span><small>Instagram</small>@${esc(C.instagramHandle)}</span></a>
         ${C.facebookUrl ? `<a href="${esc(C.facebookUrl)}" target="_blank" rel="noopener">${icon("facebook")}<span><small>Facebook</small>The Women Shop</span></a>` : ""}
-        <div>${icon("pin")}<span><small>Location</small>${esc(C.location)}</span></div>`;
+        <a href="${esc(C.mapsUrl)}" target="_blank" rel="noopener">${icon("pin")}<span><small>Location</small>${esc(C.location)}</span></a>`;
     })();
   </script>
 </body>

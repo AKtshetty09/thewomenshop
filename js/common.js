@@ -371,7 +371,7 @@
             <a href="${igProfile}" target="_blank" rel="noopener">${icon("instagram")} @${esc(C.instagramHandle)}</a>
             ${C.facebookUrl ? `<a href="${esc(C.facebookUrl)}" target="_blank" rel="noopener">${icon("facebook")} Facebook</a>` : ""}
             ${C.email ? `<a href="mailto:${esc(C.email)}">${icon("mail")} ${esc(C.email)}</a>` : ""}
-            <span class="footer-loc">${icon("pin")} ${esc(C.location)}</span>
+            <a href="${esc(C.mapsUrl)}" target="_blank" rel="noopener">${icon("pin")} ${esc(C.location)}</a>
           </div>
         </div>
         <div class="footer-bottom container">
