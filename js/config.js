@@ -13,7 +13,7 @@ window.SHOP_CONFIG = {
   whatsappNumber: "919398930741",
   phone: "+91 93989 30741",
   instagramHandle: "thewomenshop.in",
-  instagramFollowers: "26.8K",
+  instagramFollowers: "26.8K", // used only if the "settings" tab of the sheet has no value
   facebookUrl: "https://www.facebook.com/share/1KQErP9LVb/",
   location: "Ongole, Andhra Pradesh",
   // Opens when someone taps the location. To show your exact shop instead of the city:
@@ -27,6 +27,9 @@ window.SHOP_CONFIG = {
 
   // Google Sheet published as CSV (see README.md, "Adding products").
   // Leave empty "" to use the sample products in js/data.js.
+  // "settings" tab of the same sheet, published as CSV (columns: setting, value).
+  // Lets you change things like the follower count from your phone.
+  settingsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=158891596&single=true&output=csv",
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=0&single=true&output=csv",
 
   currency: "₹",
@@ -79,7 +82,7 @@ window.SHOP_CONFIG = {
   promises: [
     { icon: "shield", title: "Exactly what you see", text: "Real photos, no surprises" },
     { icon: "chat", title: "Order on WhatsApp", text: "Quick replies, personal help with sizes" },
-    { icon: "truck", title: "Delivery in 7–8 working days", text: "Shipped all over India from Ongole, AP" },
+    { icon: "truck", title: "Delivery in {shipping}", text: "Shipped all over India from Ongole, AP" },
     { icon: "refresh", title: "Exchange for damaged items", text: "Just share your unboxing video" }
   ]
 };

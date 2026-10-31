@@ -75,6 +75,7 @@
     const m = v.match(/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]{20,})/);
     return m ? `https://lh3.googleusercontent.com/d/${m[1]}=w1200` : v;
   }
+  window.toImageUrl = imageUrl;
 
   function rowsToProducts(rows) {
     const headers = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
@@ -100,6 +101,35 @@
       };
     }).filter((p) => p.name && p.price);
   }
+
+  /* ---------- Settings tab: rows of "setting, value" ---------- */
+  const SETTINGS_KEY = "tws_settings_v1";
+  let settingsPromise = null;
+
+  window.loadSettings = function () {
+    if (settingsPromise) return settingsPromise;
+    const url = window.SHOP_CONFIG.settingsCsvUrl;
+    if (!url) return (settingsPromise = Promise.resolve({}));
+
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(SETTINGS_KEY) || "null");
+      if (cached && Date.now() - cached.time < 2 * 60 * 1000) return (settingsPromise = Promise.resolve(cached.settings));
+    } catch (e) { /* ignore broken cache */ }
+
+    settingsPromise = fetch(url)
+      .then((r) => { if (!r.ok) throw new Error("Settings not reachable"); return r.text(); })
+      .then((text) => {
+        const settings = {};
+        parseCSV(text).slice(1).forEach(([key, value]) => {
+          const k = (key || "").trim().toLowerCase().replace(/\s+/g, "_");
+          if (k && (value || "").trim()) settings[k] = value.trim();
+        });
+        sessionStorage.setItem(SETTINGS_KEY, JSON.stringify({ time: Date.now(), settings }));
+        return settings;
+      })
+      .catch((err) => { console.warn("Could not load settings tab, using config.js values.", err); return {}; });
+    return settingsPromise;
+  };
 
   /* ---------- Loader with a short cache so pages open instantly ---------- */
   const CACHE_KEY = "tws_products_v1";

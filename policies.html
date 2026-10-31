@@ -109,8 +109,6 @@
     (function () {
       const { esc, icon, waLink, igProfile } = window.TWS;
       const C = window.SHOP_CONFIG;
-      document.querySelectorAll("[data-followers]").forEach((el) => (el.textContent = `${C.instagramFollowers}+`));
-      document.querySelectorAll("[data-shipping]").forEach((el) => (el.textContent = C.shippingTime));
       const ex = document.getElementById("exchange-btn");
       ex.href = waLink(`Hi ${C.name}! I received a damaged item.\nOrder ID: \nI'm attaching my unboxing video.`);
       ex.innerHTML = `${icon("whatsapp")} Request an exchange on WhatsApp`;

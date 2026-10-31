@@ -1,10 +1,10 @@
 (function () {
-  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, makeOrder, orderWhatsApp, toast, waLink, PLACEHOLDER } = window.TWS;
+  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
   const id = new URLSearchParams(location.search).get("id");
 
-  window.loadProducts().then((products) => {
+  Promise.all([window.loadProducts(), settingsReady]).then(([products]) => {
     const p = products.find((x) => x.id === id);
     if (!p) {
       $("#pdp").innerHTML = `
@@ -71,7 +71,7 @@
           ${C.policyNote ? `<p class="policy-note">${icon("info")} <span>${esc(C.policyNote)} · <a href="policies.html">Details</a></span></p>` : ""}
 
           <div class="pdp-promises">
-            ${C.promises.map((x) => `<div class="promise"><div class="promise-ico">${icon(x.icon)}</div><div><h4>${esc(x.title)}</h4><p>${esc(x.text)}</p></div></div>`).join("")}
+            ${C.promises.map((x) => `<div class="promise"><div class="promise-ico">${icon(x.icon)}</div><div><h4>${esc(fillText(x.title))}</h4><p>${esc(fillText(x.text))}</p></div></div>`).join("")}
           </div>
 
           <div class="details">
