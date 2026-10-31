@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop | The Women Shop</title>
+  <meta name="description" content="Browse anarkali sets, kurtis, kurta sets, sarees and dresses at The Women Shop.">
+  <meta name="theme-color" content="#e0336f">
+  <link rel="icon" href="assets/logo.jpg">
+  <!-- Link preview (WhatsApp, Instagram, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Women Shop">
+  <meta property="og:title" content="Shop | The Women Shop">
+  <meta property="og:description" content="Browse anarkali sets, kurtis, kurta sets, sarees and dresses. Order easily on WhatsApp.">
+  <meta property="og:image" content="https://twshop.in/assets/logo.jpg">
+  <meta property="og:url" content="https://twshop.in/shop.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="container">
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Home</a> / <span id="crumb">Shop</span></div>
+      <h1 id="page-title">All Products <small id="count"></small></h1>
+    </div>
+
+    <div class="shop-layout">
+      <aside class="filters" id="filters" aria-label="Filters">
+        <div class="filters-head">
+          <h3>Filters</h3>
+          <button type="button" id="clear-filters">Clear all</button>
+        </div>
+        <div class="filter-group">
+          <h4>Category</h4>
+          <div id="f-cat"></div>
+        </div>
+        <div class="filter-group">
+          <h4>Price</h4>
+          <div id="f-price"></div>
+        </div>
+        <div class="filter-group">
+          <h4>Size</h4>
+          <div class="size-chips" id="f-size"></div>
+        </div>
+        <div class="filter-group">
+          <h4>Discount</h4>
+          <div id="f-off"></div>
+        </div>
+        <div class="filter-group">
+          <label class="check"><input type="checkbox" id="f-stock"> Hide sold out</label>
+        </div>
+        <button class="btn btn-block filter-toggle" type="button" data-close-filters style="margin-top:16px">Show results</button>
+      </aside>
+
+      <section>
+        <div class="toolbar">
+          <button class="btn btn-outline filter-toggle" type="button" id="open-filters"><span data-icon="filter"></span> Filters</button>
+          <div class="active-filters" id="active-filters"></div>
+          <select class="select" id="sort" aria-label="Sort by">
+            <option value="">Sort: Recommended</option>
+            <option value="new">What's New</option>
+            <option value="low">Price: Low to High</option>
+            <option value="high">Price: High to Low</option>
+            <option value="off">Better Discount</option>
+          </select>
+        </div>
+        <div class="grid" id="results"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/shop.js"></script>
+</body>
+</html>

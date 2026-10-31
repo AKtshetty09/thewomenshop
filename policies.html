@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About & Policies | The Women Shop</title>
+  <meta name="description" content="About The Women Shop, Ongole. Prepaid orders only, delivery in 7–8 working days, exchange for damaged items with unboxing video.">
+  <meta name="theme-color" content="#e0336f">
+  <link rel="icon" href="assets/logo.jpg">
+  <!-- Link preview (WhatsApp, Instagram, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Women Shop">
+  <meta property="og:title" content="About & Policies | The Women Shop">
+  <meta property="og:description" content="Prepaid orders only · Delivery in 7–8 working days · Exchange for damaged items with unboxing video.">
+  <meta property="og:image" content="https://twshop.in/assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="container policies">
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Home</a> / About &amp; Policies</div>
+      <h1>About &amp; Policies</h1>
+    </div>
+
+    <nav class="policy-nav" aria-label="On this page">
+      <a href="#about">About us</a>
+      <a href="#ordering">Ordering</a>
+      <a href="#payment">Payment</a>
+      <a href="#shipping">Shipping</a>
+      <a href="#exchange">Damaged items</a>
+      <a href="#refunds">Refunds</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <section id="about" class="policy-card">
+      <h2>About us</h2>
+      <p><strong>The Women Shop</strong> is a women's ethnic wear boutique from <strong>Ongole, Andhra Pradesh</strong>. We handpick anarkali sets, A-line kurtis, top &amp; dupatta sets, kurta sets, sarees and dresses, and ship them all over India.</p>
+      <p>Our promise is simple: <strong>you'll get exactly what you see.</strong> Every photo is real, and every piece is quality checked before it is packed.</p>
+      <p>Join our family of <strong data-followers></strong> followers on Instagram for new arrivals and real customer reviews.</p>
+    </section>
+
+    <section id="ordering" class="policy-card">
+      <h2>How to order</h2>
+      <ol>
+        <li>Choose your product and size, and tap <strong>Add to Bag</strong> or <strong>Buy now on WhatsApp</strong>.</li>
+        <li>Your order details are sent to us on WhatsApp with an <strong>Order ID</strong>.</li>
+        <li>We confirm availability and share payment details in the chat.</li>
+        <li>Once payment is received, your order is packed and shipped.</li>
+      </ol>
+      <p>Not sure about your size? Message us on WhatsApp and we'll help you choose.</p>
+    </section>
+
+    <section id="payment" class="policy-card">
+      <h2>Payment</h2>
+      <ul>
+        <li><strong>Prepaid orders only.</strong> We do <strong>not</strong> offer Cash on Delivery (COD).</li>
+        <li>Payment details are shared on WhatsApp when we confirm your order.</li>
+        <li>Orders are dispatched only after payment is received.</li>
+      </ul>
+    </section>
+
+    <section id="shipping" class="policy-card">
+      <h2>Shipping &amp; delivery</h2>
+      <ul>
+        <li>We ship <strong>all over India</strong> from Ongole, Andhra Pradesh.</li>
+        <li>Delivery usually takes <strong data-shipping></strong> after dispatch.</li>
+        <li>Delivery time may be longer during festivals, sales or for remote locations.</li>
+        <li>For any update on your order, message us on WhatsApp with your Order ID.</li>
+      </ul>
+    </section>
+
+    <section id="exchange" class="policy-card highlight">
+      <h2>Damaged items: exchange</h2>
+      <p>If your product arrives damaged, we will <strong>exchange</strong> it.</p>
+      <ul>
+        <li>An <strong>unboxing / parcel opening video is required</strong> for every exchange request.</li>
+        <li>Please record the video <strong>from the moment you start opening the sealed parcel</strong>, without cuts or pauses, clearly showing the damage.</li>
+        <li>Send the video with your Order ID to us on WhatsApp.</li>
+        <li>Exchange requests without an unboxing video cannot be accepted.</li>
+      </ul>
+      <a class="btn btn-wa" id="exchange-btn" target="_blank" rel="noopener"></a>
+    </section>
+
+    <section id="refunds" class="policy-card">
+      <h2>Refunds</h2>
+      <ul>
+        <li>We do <strong>not</strong> offer refunds.</li>
+        <li>Damaged products are exchanged as described above.</li>
+      </ul>
+    </section>
+
+    <section id="contact" class="policy-card">
+      <h2>Contact us</h2>
+      <div class="contact-list" id="contact-list"></div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    (function () {
+      const { esc, icon, waLink, igProfile } = window.TWS;
+      const C = window.SHOP_CONFIG;
+      document.querySelectorAll("[data-followers]").forEach((el) => (el.textContent = `${C.instagramFollowers}+`));
+      document.querySelectorAll("[data-shipping]").forEach((el) => (el.textContent = C.shippingTime));
+      const ex = document.getElementById("exchange-btn");
+      ex.href = waLink(`Hi ${C.name}! I received a damaged item.\nOrder ID: \nI'm attaching my unboxing video.`);
+      ex.innerHTML = `${icon("whatsapp")} Request an exchange on WhatsApp`;
+      document.getElementById("contact-list").innerHTML = `
+        <a href="${waLink("Hi " + C.name + "!")}" target="_blank" rel="noopener">${icon("whatsapp")}<span><small>WhatsApp</small>${esc(C.phone)}</span></a>
+        <a href="${igProfile}" target="_blank" rel="noopener">${icon("instagram")}<span><small>Instagram</small>@${esc(C.instagramHandle)}</span></a>
+        ${C.facebookUrl ? `<a href="${esc(C.facebookUrl)}" target="_blank" rel="noopener">${icon("facebook")}<span><small>Facebook</small>The Women Shop</span></a>` : ""}
+        <div>${icon("pin")}<span><small>Location</small>${esc(C.location)}</span></div>`;
+    })();
+  </script>
+</body>
+</html>
