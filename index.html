@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Women Shop | Anarkalis, Kurtis, Sarees & Ethnic Wear Online</title>
+  <meta name="description" content="Shop anarkali sets, A-line kurtis, top &amp; dupatta sets, kurta sets, sarees and dresses at The Women Shop, Ongole. Order easily on WhatsApp.">
+  <meta name="theme-color" content="#e0336f">
+  <link rel="icon" href="assets/logo.jpg">
+  <!-- Link preview (WhatsApp, Instagram, Facebook) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="The Women Shop">
+  <meta property="og:title" content="The Women Shop | Anarkalis, Kurtis & Sarees">
+  <meta property="og:description" content="You'll get exactly what you see ✨ Anarkali sets, A-line kurtis, kurta sets, sarees & dresses. Order on WhatsApp · Delivery all over India.">
+  <meta property="og:image" content="https://twshop.in/assets/logo.jpg">
+  <meta property="og:url" content="https://twshop.in/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <!-- Hero slider -->
+    <section class="hero" id="hero" aria-label="Featured collections">
+      <!-- slides come from heroSlides in js/config.js -->
+      <div class="hero-dots"></div>
+    </section>
+
+    <!-- Promises -->
+    <div class="container promises" id="promises"></div>
+
+    <!-- Categories -->
+    <section class="section section-soft">
+      <div class="container">
+        <div class="section-head reveal">
+          <div><h2>Shop by Category</h2><p>Find your perfect look</p></div>
+          <a class="link-arrow" href="shop.html">View all <span data-icon="arrow"></span></a>
+        </div>
+        <div class="cats reveal" id="cats"></div>
+      </div>
+    </section>
+
+    <!-- New arrivals -->
+    <section class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <div><h2>New Arrivals</h2><p>Fresh styles, just dropped</p></div>
+          <a class="link-arrow" href="shop.html?tag=new">See all <span data-icon="arrow"></span></a>
+        </div>
+        <div class="scroller" id="new-arrivals"></div>
+      </div>
+    </section>
+
+    <!-- Promo banners -->
+    <section class="section section-soft">
+      <div class="container promos reveal" id="promos"></div>
+    </section>
+
+    <!-- Bestsellers -->
+    <section class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <div><h2>Bestsellers</h2><p>Loved by our customers</p></div>
+          <a class="link-arrow" href="shop.html?tag=bestseller">See all <span data-icon="arrow"></span></a>
+        </div>
+        <div class="grid" id="bestsellers"></div>
+      </div>
+    </section>
+
+    <!-- Price deals -->
+    <section class="container reveal">
+      <div class="deal">
+        <div>
+          <h2>Shop by <span>Budget</span></h2>
+          <p>Beautiful styles for every pocket. Pick your price and find your next favourite outfit.</p>
+        </div>
+        <div class="deal-chips">
+          <a href="shop.html?max=799"><small>Under</small>₹799</a>
+          <a href="shop.html?max=999"><small>Under</small>₹999</a>
+          <a href="shop.html?max=1499"><small>Under</small>₹1,499</a>
+          <a href="shop.html?max=2499"><small>Under</small>₹2,499</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Instagram -->
+    <section class="section">
+      <div class="container insta reveal">
+        <div>
+          <span class="eyebrow" style="color: var(--primary)">Join our community</span>
+          <h2>Follow us on <span>Instagram</span></h2>
+          <p>Join <strong id="insta-followers"></strong> followers! See new arrivals first, styling reels and real customer reviews. Tag us to get featured!</p>
+          <a class="btn btn-insta" id="insta-btn" target="_blank" rel="noopener"></a>
+        </div>
+        <div class="insta-grid" id="insta-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/home.js"></script>
+</body>
+</html>
