@@ -1,11 +1,14 @@
 (function () {
-  const { esc, icon, productCard, igProfile } = window.TWS;
+  const { esc, icon, productCard, igProfile, settingsReady, fillText } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
 
   document.querySelectorAll("[data-icon]").forEach((el) => (el.outerHTML = icon(el.dataset.icon)));
 
-  /* hero slider (slides are set in config.js → heroSlides; title may use <em> for the pink word) */
+  settingsReady.then(() => { renderHero(); renderPromises(); });
+
+  /* hero slider (config.js → heroSlides, or the banner rows of the sheet's Settings tab) */
+  function renderHero() {
   $("#hero").insertAdjacentHTML("afterbegin", C.heroSlides.map((s, i) => `
     <div class="slide ${i ? "" : "active"}">
       <img src="${esc(s.image)}" alt="" style="object-position:${esc(s.focus || "center")}" ${i ? 'loading="lazy"' : ""}>
@@ -31,13 +34,16 @@
   }
   [...dots.children].forEach((d, i) => d.addEventListener("click", () => go(i)));
   go(0);
+  }
 
   /* promises */
-  $("#promises").innerHTML = C.promises.map((p) => `
-    <div class="promise">
-      <div class="promise-ico">${icon(p.icon)}</div>
-      <div><h4>${esc(p.title)}</h4><p>${esc(p.text)}</p></div>
-    </div>`).join("");
+  function renderPromises() {
+    $("#promises").innerHTML = C.promises.map((p) => `
+      <div class="promise">
+        <div class="promise-ico">${icon(p.icon)}</div>
+        <div><h4>${esc(fillText(p.title))}</h4><p>${esc(fillText(p.text))}</p></div>
+      </div>`).join("");
+  }
 
   /* skeletons while loading */
   const skeletons = (n) => Array.from({ length: n }, () => '<div class="skeleton"></div>').join("");
@@ -90,7 +96,6 @@
     observeReveal();
   });
 
-  $("#insta-followers").textContent = `${C.instagramFollowers}+`;
   $("#insta-btn").href = igProfile;
   $("#insta-btn").innerHTML = `${icon("instagram")} @${esc(C.instagramHandle)}`;
 

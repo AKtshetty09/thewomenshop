@@ -173,7 +173,7 @@
     if (!el) return;
     const catLinks = C.categories.map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}">${esc(c)}</a>`).join("");
     el.outerHTML = `
-      <div class="announce"><div class="announce-track">${C.announcements.map(announceItem).join("")}</div></div>
+      <div class="announce"><div class="announce-track" id="announce-track">${C.announcements.map(announceItem).join("")}</div></div>
       <header class="site-header">
         <div class="container header-inner">
           <button class="icon-btn menu-btn" data-open-menu aria-label="Open menu">${icon("menu")}</button>
@@ -382,11 +382,59 @@
       <a class="wa-float" href="${waLink("Hi " + C.name + "!")}" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">${icon("whatsapp")}</a>`;
   }
 
+  /* ---------- values from the sheet's Settings tab ---------- */
+  // "Delivery in {shipping}" → "Delivery in 7–8 working days"
+  const fillText = (t) => String(t).replace(/\{shipping\}/g, C.shippingTime);
+
+  // Banner "shows": a category name, "new", "bestseller", "all", or a full link
+  function bannerLink(v) {
+    const t = v.trim();
+    if (/^(https?:|shop\.html|product\.html|policies\.html|index\.html)/i.test(t)) return t;
+    if (/^(new|new arrivals)$/i.test(t)) return "shop.html?tag=new";
+    if (/^bestsellers?$/i.test(t)) return "shop.html?tag=bestseller";
+    if (/^all$/i.test(t)) return "shop.html";
+    return `shop.html?cat=${encodeURIComponent(t)}`;
+  }
+
+  function applySettings(s) {
+    if (s.instagram_followers) C.instagramFollowers = s.instagram_followers.replace(/\+$/, "");
+    if (s.shipping_time) C.shippingTime = s.shipping_time;
+    C.announcements.forEach((a, i) => {
+      const text = s[`announcement_${i + 1}`];
+      if (text) C.announcements[i] = typeof a === "string" ? text : { ...a, text };
+    });
+    C.heroSlides.forEach((slide, i) => {
+      const get = (k) => s[`banner_${i + 1}_${k}`];
+      if (get("image")) slide.image = window.toImageUrl(get("image"));
+      // *word* in the heading is shown in pink italics
+      if (get("heading")) slide.title = esc(get("heading")).replace(/\*(.+?)\*/g, "<em>$1</em>");
+      if (get("small_text")) slide.eyebrow = get("small_text");
+      if (get("text")) slide.text = get("text");
+      if (get("button")) slide.button = get("button");
+      if (get("shows")) slide.link = bannerLink(get("shows"));
+    });
+  }
+
+  function fillSettings() {
+    document.querySelectorAll("[data-followers]").forEach((el) => (el.textContent = `${C.instagramFollowers}+`));
+    document.querySelectorAll("[data-shipping]").forEach((el) => (el.textContent = C.shippingTime));
+    const track = document.getElementById("announce-track");
+    if (track) track.innerHTML = C.announcements.map(announceItem).join("");
+  }
+
+  // Resolves once the Settings tab is applied (or after 2.5s, so a slow sheet never blocks the page)
+  const settingsReady = Promise.race([
+    window.loadSettings(),
+    new Promise((resolve) => setTimeout(() => resolve({}), 2500))
+  ]).then((s) => { applySettings(s); fillSettings(); return s; });
+
   /* ---------- init ---------- */
   renderHeader();
   renderFooter();
+  // Show config.js values straight away; settingsReady updates them from the sheet
+  fillSettings();
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, makeOrder, orderWhatsApp, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();

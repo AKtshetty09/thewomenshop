@@ -8,4 +8,7 @@ Products are managed in Google Sheets. Columns:
 id · name · category · price · mrp · sizes · colors · image1, image2, … ·
 description · fabric · in_stock (yes/no) · tag (new/bestseller) · featured (yes/no)
 
-Shop settings (phone, categories, banners): `js/config.js`
+The Settings tab of the same sheet controls the follower count, shipping time,
+top bar messages and home banners (see `settings-template.csv`).
+
+Other shop settings (phone, categories): `js/config.js`
