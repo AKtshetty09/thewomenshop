@@ -6,11 +6,12 @@
   <title>Make a payment link | The Women Shop</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#e0336f">
-  <link rel="icon" href="assets/logo.jpg">
+  <link rel="icon" type="image/png" href="assets/icon-512.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20261101g">
+  <link rel="stylesheet" href="css/style.css?v=20261101h">
 </head>
 <body>
   <div id="site-header"></div>
@@ -23,8 +24,11 @@
       <form id="mk" novalidate>
         <label class="field-label" for="mk-order">Order ID *</label>
         <input class="field" id="mk-order" placeholder="TWS261101-1234" autocomplete="off">
-        <label class="field-label" for="mk-amount">Amount to pay (₹) *</label>
+        <label class="field-label" for="mk-amount">Products amount (₹) *</label>
         <input class="field" id="mk-amount" type="number" inputmode="decimal" min="1" placeholder="1899">
+        <label class="field-label" for="mk-ship">Shipping (₹)</label>
+        <input class="field" id="mk-ship" type="number" inputmode="decimal" min="0" placeholder="80">
+        <p class="muted small" id="mk-total"></p>
         <label class="field-label" for="mk-phone">Customer's WhatsApp number (optional)</label>
         <input class="field" id="mk-phone" type="tel" inputmode="numeric" placeholder="98765 43210">
         <p class="size-error" id="mk-error" hidden></p>
@@ -45,9 +49,9 @@
 
   <div id="site-footer"></div>
 
-  <script src="js/config.js?v=20261101g"></script>
-  <script src="js/data.js?v=20261101g"></script>
-  <script src="js/common.js?v=20261101g"></script>
+  <script src="js/config.js?v=20261101h"></script>
+  <script src="js/data.js?v=20261101h"></script>
+  <script src="js/common.js?v=20261101h"></script>
   <script>
     (function () {
       const { icon, money, toast } = window.TWS;
@@ -57,16 +61,20 @@
       $("#mk").addEventListener("submit", (e) => {
         e.preventDefault();
         const order = $("#mk-order").value.trim().toUpperCase();
-        const amount = Number($("#mk-amount").value);
+        const items = Number($("#mk-amount").value);
+        const ship = Number($("#mk-ship").value) || 0;
+        const amount = items + ship;
         const digits = $("#mk-phone").value.replace(/\D/g, "").replace(/^0+/, "");
         const fail = (m) => { $("#mk-error").textContent = m; $("#mk-error").hidden = false; };
         if (!/^[A-Z0-9-]{3,30}$/.test(order)) return fail("Enter the Order ID from the customer's message (letters, numbers and -)");
-        if (!(amount > 0 && amount <= 100000)) return fail("Enter the amount to pay");
+        if (!(items > 0 && amount <= 100000)) return fail("Enter the products amount");
+        if (ship < 0) return fail("Shipping can't be negative");
         if (digits && digits.length !== 10 && digits.length !== 12) return fail("Enter a 10-digit mobile number, or leave it empty");
         $("#mk-error").hidden = true;
 
-        const link = `https://${C.domain}/pay?o=${encodeURIComponent(order)}&a=${amount}`;
-        const msg = `Hi! Your order *${order}* is confirmed ✅\n\nAmount to pay: *${money(amount)}*\nPay here (any UPI app): ${link}\n\nPlease send the payment screenshot after paying. Thank you for shopping with ${C.name} 💖`;
+        const link = `https://${C.domain}/pay?o=${encodeURIComponent(order)}&a=${amount}${ship ? `&s=${ship}` : ""}`;
+        const breakdown = ship ? `Products: ${money(items)}\nShipping: ${money(ship)}\n` : "";
+        const msg = `Hi! Your order *${order}* is confirmed ✅\n\n${breakdown}Amount to pay: *${money(amount)}*\nPay here (any UPI app): ${link}\n\nPlease send the payment screenshot after paying. Thank you for shopping with ${C.name} 💖`;
         const phone = digits.length === 10 ? `91${digits}` : digits;
 
         $("#mk-msg").value = msg;
@@ -75,6 +83,14 @@
         $("#mk-open").href = link;
         $("#mk-result").hidden = false;
       });
+
+      // live total while typing
+      const showTotal = () => {
+        const t = (Number($("#mk-amount").value) || 0) + (Number($("#mk-ship").value) || 0);
+        $("#mk-total").textContent = t ? `Customer pays: ${money(t)}` : "";
+      };
+      $("#mk-amount").addEventListener("input", showTotal);
+      $("#mk-ship").addEventListener("input", showTotal);
 
       $("#mk-copy").addEventListener("click", async () => {
         try { await navigator.clipboard.writeText($("#mk-msg").value); toast("Message copied"); }

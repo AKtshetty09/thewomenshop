@@ -15,3 +15,7 @@ The Reviews tab (name, city, review, photo, show) fills the home page reviews (s
 Other shop settings (phone, categories): `js/config.js`
 
 When you change a file in css/ or js/, raise the `?v=` number in all HTML files so browsers load the new version.
+
+Publishing: `.github/workflows/deploy.yml` publishes the site to GitHub Pages on every change to `main`
+and every hour. Each run makes a page per product (`twshop.in/p/TWS001`) from the sheet, so shared
+links show the product photo. GitHub Pages source must be set to **GitHub Actions**.

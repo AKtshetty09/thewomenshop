@@ -40,6 +40,11 @@ window.SHOP_CONFIG = {
   // Shown in the bag and on every product page
   policyNote: "Prepaid orders only (No COD) · No refunds",
   shippingTime: "7–8 working days",
+  // Shipping charge by number of items in the order. More items than listed (or heavy items):
+  // the charge is confirmed on WhatsApp, because it depends on weight.
+  shippingRates: [80, 140],
+  // Shown on products marked made_to_order = yes in the sheet
+  madeToOrderText: "Made to order: we'll confirm the dispatch date on WhatsApp",
 
   // Google Sheet published as CSV (see README.md, "Adding products").
   // Leave empty "" to use the sample products in js/data.js.

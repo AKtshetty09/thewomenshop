@@ -1,8 +1,9 @@
 (function () {
-  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, track, stars, reviewCard, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
+  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, track, shippingLine, stars, reviewCard, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
-  const id = new URLSearchParams(location.search).get("id");
+  // twshop.in/p/TWS001 pages set PRODUCT_ID; product.html?id=TWS001 uses the link
+  const id = window.PRODUCT_ID || new URLSearchParams(location.search).get("id");
 
   Promise.all([window.loadProducts(), settingsReady]).then(([products]) => {
     const p = products.find((x) => x.id === id);
@@ -52,6 +53,8 @@
             ${off ? `<s>MRP ${money(p.mrp)}</s><span class="off">(${off}% OFF)</span>` : ""}
           </div>
           <p class="tax-note">Inclusive of all taxes</p>
+          <p class="ship-note">${icon("truck")} <span>Shipping: ${esc(shippingLine())} · more items: by weight, confirmed on WhatsApp</span></p>
+          ${p.madeToOrder ? `<p class="mto-note">${icon("info")} <span>${esc(C.madeToOrderText)}</span></p>` : ""}
           ${p.inStock ? "" : '<span class="stock-out">Currently sold out. Message us to get notified when it\'s back.</span>'}
 
           ${p.sizes.length ? `
@@ -234,7 +237,7 @@
     document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
     const canonical = document.createElement("link");
     canonical.rel = "canonical";
-    canonical.href = `https://${C.domain}/product.html?id=${encodeURIComponent(p.id)}`;
+    canonical.href = `https://${C.domain}/p/${encodeURIComponent(p.id)}`;
     document.head.appendChild(canonical);
 
     const data = {

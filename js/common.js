@@ -101,10 +101,16 @@
   }
 
   /* ---------- WhatsApp / Instagram links ---------- */
-  const pageLink = (p) => (location.protocol.startsWith("http") ? `${location.origin}${location.pathname.replace(/[^/]*$/, "")}product.html?id=${encodeURIComponent(p.id)}` : "");
+  // Short product link with photo preview (pages made from the sheet every hour; 404.html covers new ones)
+  const pageLink = (p) => `https://${C.domain}/p/${encodeURIComponent(p.id)}`;
   const waLink = (text) => `https://wa.me/${C.whatsappNumber}?text=${encodeURIComponent(text)}`;
   const igProfile = `https://www.instagram.com/${C.instagramHandle}/`;
   const igDM = `https://ig.me/m/${C.instagramHandle}`;
+
+  /* ---------- shipping ---------- */
+  // Charge for a number of items, or null when it must be confirmed on WhatsApp (by weight)
+  const shippingFor = (count) => (count >= 1 && count <= C.shippingRates.length ? C.shippingRates[count - 1] : null);
+  const shippingLine = () => C.shippingRates.map((r, i) => `${money(r)} for ${i + 1} item${i ? "s" : ""}`).join(" · ");
 
   /* ---------- orders (saved on this device) ---------- */
   const Orders = {
@@ -126,7 +132,8 @@
       id: `TWS${ymd}-${Math.floor(1000 + Math.random() * 9000)}`,
       date: d.toISOString(),
       items: lines,
-      total: lines.reduce((n, i) => n + i.price * i.qty, 0)
+      total: lines.reduce((n, i) => n + i.price * i.qty, 0),
+      shipping: shippingFor(lines.reduce((n, i) => n + i.qty, 0))
     };
   }
 
@@ -137,7 +144,11 @@
       return `${i + 1}. *${it.name}* (${it.id})\n   Size: ${it.size}${colour} | Qty: ${it.qty} | ${money(it.price * it.qty)}` + (link ? `\n   ${link}` : "");
     });
     return waLink(
-      `Hi ${C.name}! I'd like to place an order.\n*Order ID: ${order.id}*\n\n${lines.join("\n")}\n\n*Total: ${money(order.total)}*\n\nPlease share payment & delivery details.`
+      `Hi ${C.name}! I'd like to place an order.\n*Order ID: ${order.id}*\n\n${lines.join("\n")}\n\nItems: ${money(order.total)}\n` +
+      (order.shipping != null
+        ? `Shipping (estimate): ${money(order.shipping)}\n*Estimated total: ${money(order.total + order.shipping)}*`
+        : `Shipping: to be confirmed (based on weight)\n*Items total: ${money(order.total)}*`) +
+      `\n\nPlease confirm availability, shipping & payment details.`
     );
   }
 
@@ -420,7 +431,14 @@
       <div class="bag-summary">
         <div class="row"><span>Total MRP</span><span>${money(mrpTotal)}</span></div>
         ${mrpTotal > total ? `<div class="row save"><span>Discount</span><span>−${money(mrpTotal - total)}</span></div>` : ""}
-        <div class="row total"><span>Total</span><span>${money(total)}</span></div>
+        ${(() => {
+          const ship = shippingFor(items.reduce((n, i) => n + i.qty, 0));
+          return ship != null
+            ? `<div class="row"><span>Shipping</span><span>${money(ship)}</span></div>
+               <div class="row total"><span>Total</span><span>${money(total + ship)}</span></div>`
+            : `<div class="row"><span>Shipping</span><span class="small">Confirmed on WhatsApp (by weight)</span></div>
+               <div class="row total"><span>Items total</span><span>${money(total)}</span></div>`;
+        })()}
         <a class="btn btn-wa btn-block" href="#" data-checkout target="_blank" rel="noopener">${icon("whatsapp")} Order on WhatsApp</a>
         <a class="btn btn-outline btn-block" href="${igDM}" target="_blank" rel="noopener">${icon("instagram")} Order via Instagram DM</a>
         <p class="muted small center">We'll confirm availability, payment & delivery in chat.</p>
@@ -620,6 +638,11 @@
   function applySettings(s) {
     if (s.instagram_followers) C.instagramFollowers = s.instagram_followers.replace(/\+$/, "");
     if (s.shipping_time) C.shippingTime = s.shipping_time;
+    // "shipping 1 item", "shipping 2 items", "shipping 3 items"…
+    const rates = Object.keys(s).map((k) => k.match(/^shipping_(\d+)_items?$/)).filter(Boolean)
+      .sort((a, b) => a[1] - b[1]).map((m) => Number(String(s[m[0]]).replace(/[^\d.]/g, "")));
+    if (rates.length && rates.every((r) => r >= 0)) C.shippingRates = rates;
+    if (s.made_to_order_text) C.madeToOrderText = s.made_to_order_text;
     C.announcements.forEach((a, i) => {
       const text = s[`announcement_${i + 1}`];
       if (text) C.announcements[i] = typeof a === "string" ? text : { ...a, text };
@@ -639,6 +662,7 @@
   function fillSettings() {
     document.querySelectorAll("[data-followers]").forEach((el) => (el.textContent = `${C.instagramFollowers}+`));
     document.querySelectorAll("[data-shipping]").forEach((el) => (el.textContent = C.shippingTime));
+    document.querySelectorAll("[data-shipping-rates]").forEach((el) => (el.textContent = shippingLine()));
     const track = document.getElementById("announce-track");
     if (track) track.innerHTML = C.announcements.map(announceItem).join("");
   }
@@ -662,5 +686,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, track, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, track, shippingFor, shippingLine, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();
