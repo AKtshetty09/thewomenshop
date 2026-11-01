@@ -395,12 +395,11 @@
               <input class="hp" id="rv-website" tabindex="-1" autocomplete="off" aria-hidden="true">
               <p class="size-error" id="rv-error" hidden></p>
               <button class="btn btn-block" type="submit" id="rv-submit">Submit review</button>
-              <p class="muted small center">Reviews appear on the website after we check them.</p>
             </form>
             <div class="review-done" id="review-done" hidden>
               <div class="done-ico">💖</div>
               <h3>Thank you!</h3>
-              <p class="muted">Your review has been sent. It will appear on the website after we check it.</p>
+              <p class="muted">Your review has been sent. Thank you for shopping with The Women Shop!</p>
               <button class="btn" type="button" data-close-review>Done</button>
             </div>
           </div>
