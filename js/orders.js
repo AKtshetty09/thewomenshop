@@ -36,10 +36,10 @@
         <ul class="order-items">
           ${o.items.map((it) => `
             <li>
-              <a href="product.html?id=${encodeURIComponent(it.id)}"><img src="${esc(it.image || PLACEHOLDER)}" alt="${esc(it.name)}" onerror="this.onerror=null;this.src='${PLACEHOLDER}'"></a>
+              <a href="product.html?id=${encodeURIComponent(it.id)}"><img src="${esc(window.toThumbUrl(it.image) || PLACEHOLDER)}" alt="${esc(it.name)}" onerror="this.onerror=null;this.src='${PLACEHOLDER}'"></a>
               <div>
                 <a href="product.html?id=${encodeURIComponent(it.id)}"><h4>${esc(it.name)}</h4></a>
-                <p class="muted small">Size: ${esc(it.size)} · Qty: ${it.qty} · Code ${esc(it.id)}</p>
+                <p class="muted small">Size: ${esc(it.size)}${it.color ? ` · Colour: ${esc(it.color)}` : ""} · Qty: ${it.qty} · Code ${esc(it.id)}</p>
                 <p class="price"><strong>${money(it.price * it.qty)}</strong></p>
               </div>
             </li>`).join("")}
@@ -64,7 +64,7 @@
       let added = 0;
       order.items.forEach((it) => {
         const p = products.find((x) => x.id === it.id);
-        if (p && p.inStock) { Bag.add(it.id, it.size, it.qty); added++; }
+        if (p && p.inStock) { Bag.add(it.id, it.size, it.qty, it.color || ""); added++; }
       });
       if (added) window.TWS.openBag();
       toast(added === order.items.length ? "Added to bag 🛍️" : added ? "Some items are sold out. The rest were added to your bag." : "Sorry, these items are sold out now");

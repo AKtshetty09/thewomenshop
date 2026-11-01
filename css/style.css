@@ -232,7 +232,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .price .off { color: #ff7a2f; font-weight: 600; font-size: 13px; }
 
 /* horizontal scroller on home */
-.scroller { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 18px; scrollbar-width: thin; }
+.scroller { display: grid; grid-auto-flow: column; grid-auto-columns: max(230px, calc((100% - 80px) / 5)); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 18px; scrollbar-width: thin; }
 .scroller > * { scroll-snap-align: start; }
 
 /* skeleton loading */
@@ -466,3 +466,28 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
   .reveal { opacity: 1; transform: none; }
 }
 .policy-note a { text-decoration: underline; font-weight: 600; }
+
+/* ---------- sold-out sizes, colour picker, share ---------- */
+.sizes button.sold { color: var(--muted); background: var(--bg-soft); text-decoration: line-through; cursor: not-allowed; opacity: .6; }
+.sizes button.sold:hover { border-color: var(--line); color: var(--muted); }
+.colors-pick button { min-width: 0; height: 44px; padding: 0 18px; font-weight: 500; }
+.opt-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.opt-note a { color: var(--primary); font-weight: 600; }
+.pdp-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.share-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-2); transition: .2s; }
+.share-btn:hover { border-color: var(--primary); color: var(--primary); }
+.share-btn .ico { width: 16px; height: 16px; }
+
+/* ---------- load more ---------- */
+.load-more { display: grid; justify-items: center; gap: 10px; margin-top: 36px; }
+.load-more .btn { min-width: 220px; }
+
+/* ---------- customer reviews ---------- */
+.reviews { grid-auto-columns: minmax(260px, 320px); }
+.review { margin: 0; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; gap: 12px; }
+.review img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; }
+.review blockquote { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.6; flex: 1; }
+.review figcaption { display: flex; flex-direction: column; font-size: 14px; }
+.review figcaption span { color: var(--muted); font-size: 12.5px; }
+@media (max-width: 640px) { .reviews { grid-auto-columns: 78%; } }
+.promos > .promo:only-child { grid-column: 1 / -1; }

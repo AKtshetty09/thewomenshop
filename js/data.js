@@ -68,6 +68,7 @@
   const list = (v) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
   const yes = (v) => /^(yes|y|true|1)$/i.test((v || "").trim());
   const num = (v) => Number(String(v || "").replace(/[^0-9.]/g, "")) || 0;
+  const keyOf = (h) => h.trim().toLowerCase().replace(/\s+/g, "_");
 
   // Google Drive share links (drive.google.com/file/d/ID/view, open?id=ID, uc?id=ID)
   // are web pages, not images, so turn them into a direct image link.
@@ -77,87 +78,96 @@
   }
   window.toImageUrl = imageUrl;
 
+  // Smaller copy of a photo for product grids (Drive and Unsplash can resize; other hosts stay as they are)
+  window.toThumbUrl = (url) => (url || "")
+    .replace(/(lh3\.googleusercontent\.com\/d\/[\w-]+)=w\d+/, "$1=w600")
+    .replace(/(images\.unsplash\.com\/[^?]+\?(?:.*&)?w=)\d+/, "$1600");
+
   function rowsToProducts(rows) {
-    const headers = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    const headers = rows[0].map(keyOf);
     return rows.slice(1).map((r, i) => {
       const o = {};
       headers.forEach((h, idx) => (o[h] = (r[idx] || "").trim()));
       const images = headers.filter((h) => h.startsWith("image")).map((h) => o[h]).filter(Boolean).map(imageUrl);
       const price = num(o.price);
+      const stock = (o.in_stock || "").toLowerCase();
+      const sizes = list(o.sizes);
+      const soldOutSizes = list(o.sold_out_sizes).filter((s) => sizes.includes(s));
       return {
         id: o.id || `P${i + 1}`,
         name: o.name,
         category: o.category || "Others",
         price,
         mrp: num(o.mrp) || price,
-        sizes: list(o.sizes),
+        sizes,
+        soldOutSizes,
         colors: list(o.colors),
         images,
         fabric: o.fabric || "",
         description: o.description || "",
-        inStock: o.in_stock === "" || o.in_stock === undefined ? true : yes(o.in_stock),
+        hidden: /^(hide|hidden|draft)$/.test(stock),
+        // sold out if marked "no", or if every size is in the sold-out list
+        inStock: (stock === "" || yes(stock)) && !(sizes.length && soldOutSizes.length === sizes.length),
         tag: (o.tag || "").toLowerCase(),
         featured: yes(o.featured)
       };
-    }).filter((p) => p.name && p.price);
+    }).filter((p) => p.name && p.price && !p.hidden);
   }
 
-  /* ---------- Settings tab: rows of "setting, value" ---------- */
-  const SETTINGS_KEY = "tws_settings_v1";
-  let settingsPromise = null;
+  // Rows of "setting, value" (Settings tab)
+  function rowsToSettings(rows) {
+    const settings = {};
+    rows.slice(1).forEach(([key, value]) => {
+      const k = keyOf(key || "");
+      if (k && (value || "").trim()) settings[k] = value.trim();
+    });
+    return settings;
+  }
 
-  window.loadSettings = function () {
-    if (settingsPromise) return settingsPromise;
-    const url = window.SHOP_CONFIG.settingsCsvUrl;
-    if (!url) return (settingsPromise = Promise.resolve({}));
-
-    try {
-      const cached = JSON.parse(sessionStorage.getItem(SETTINGS_KEY) || "null");
-      if (cached && Date.now() - cached.time < 2 * 60 * 1000) return (settingsPromise = Promise.resolve(cached.settings));
-    } catch (e) { /* ignore broken cache */ }
-
-    settingsPromise = fetch(url)
-      .then((r) => { if (!r.ok) throw new Error("Settings not reachable"); return r.text(); })
-      .then((text) => {
-        const settings = {};
-        parseCSV(text).slice(1).forEach(([key, value]) => {
-          const k = (key || "").trim().toLowerCase().replace(/\s+/g, "_");
-          if (k && (value || "").trim()) settings[k] = value.trim();
-        });
-        sessionStorage.setItem(SETTINGS_KEY, JSON.stringify({ time: Date.now(), settings }));
-        return settings;
-      })
-      .catch((err) => { console.warn("Could not load settings tab, using config.js values.", err); return {}; });
-    return settingsPromise;
-  };
+  // Reviews tab: name, city, review, photo, show
+  function rowsToReviews(rows) {
+    const headers = rows[0].map(keyOf);
+    return rows.slice(1).map((r) => {
+      const o = {};
+      headers.forEach((h, idx) => (o[h] = (r[idx] || "").trim()));
+      return { name: o.name, city: o.city || "", text: o.review || "", photo: o.photo ? imageUrl(o.photo) : "", show: o.show };
+    }).filter((x) => x.name && x.text && !/^(no|n|false|0)$/i.test(x.show || ""));
+  }
 
   /* ---------- Loader with a short cache so pages open instantly ---------- */
-  const CACHE_KEY = "tws_products_v1";
   const CACHE_MS = 2 * 60 * 1000;
-  let promise = null;
+  const loaders = {};
 
-  window.loadProducts = function () {
-    if (promise) return promise;
-    const url = window.SHOP_CONFIG.sheetCsvUrl;
-    if (!url) return (promise = Promise.resolve(SAMPLE_PRODUCTS));
-
+  // url → parsed data; cached for 2 minutes per browser tab
+  function loadCsv(name, url, parse, fallback) {
+    if (loaders[name]) return loaders[name];
+    if (!url) return (loaders[name] = Promise.resolve(fallback));
+    const key = `tws_${name}_v2`;
     try {
-      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
-      if (cached && Date.now() - cached.time < CACHE_MS) return (promise = Promise.resolve(cached.products));
+      const cached = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (cached && Date.now() - cached.time < CACHE_MS) return (loaders[name] = Promise.resolve(cached.data));
     } catch (e) { /* ignore broken cache */ }
 
-    promise = fetch(url)
-      .then((r) => { if (!r.ok) throw new Error("Sheet not reachable"); return r.text(); })
+    loaders[name] = fetch(url)
+      .then((r) => { if (!r.ok) throw new Error(`${name} not reachable`); return r.text(); })
       .then((text) => {
-        const products = rowsToProducts(parseCSV(text));
-        if (!products.length) throw new Error("Sheet has no products");
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), products }));
-        return products;
-      })
-      .catch((err) => {
-        console.warn("Could not load Google Sheet, showing sample products.", err);
-        return SAMPLE_PRODUCTS;
+        const data = parse(parseCSV(text));
+        sessionStorage.setItem(key, JSON.stringify({ time: Date.now(), data }));
+        return data;
       });
-    return promise;
-  };
+    return loaders[name];
+  }
+
+  const C = window.SHOP_CONFIG;
+
+  // Products: samples only when no sheet is set. If the sheet fails, show nothing rather than
+  // fake products (pages show a "please refresh" message for an empty list).
+  window.loadProducts = () => loadCsv("products", C.sheetCsvUrl, rowsToProducts, SAMPLE_PRODUCTS)
+    .catch((err) => { console.warn("Could not load the product sheet.", err); window.productsFailed = true; return []; });
+
+  window.loadSettings = () => loadCsv("settings", C.settingsCsvUrl, rowsToSettings, {})
+    .catch((err) => { console.warn("Could not load the Settings tab, using config.js values.", err); return {}; });
+
+  window.loadReviews = () => loadCsv("reviews", C.reviewsCsvUrl, rowsToReviews, [])
+    .catch((err) => { console.warn("Could not load the Reviews tab.", err); return []; });
 })();
