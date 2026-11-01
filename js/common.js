@@ -39,6 +39,18 @@
   const icon = (name, cls = "") =>
     `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 
+  /* ---------- visitor statistics (Umami) ---------- */
+  // Count an action, e.g. track("add-to-bag", { product: "TWS001" }). Does nothing if Umami isn't loaded.
+  const track = (name, data) => { try { window.umami && window.umami.track(name, data); } catch (e) { /* ignore */ } };
+  // Owner's phone: open twshop.in/?me once to stop counting your own visits (twshop.in/?me=off to undo)
+  (function () {
+    const me = new URLSearchParams(location.search).get("me");
+    if (me === null) return;
+    if (me === "off") localStorage.removeItem("umami.disabled");
+    else localStorage.setItem("umami.disabled", "1");
+    setTimeout(() => toast(me === "off" ? "Visits from this phone are counted again" : "Visits from this phone won't be counted"), 600);
+  })();
+
   /* ---------- storage: bag & wishlist ---------- */
   const read = (k) => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } };
   const write = (k, v) => { localStorage.setItem(k, JSON.stringify(v)); updateCounts(); };
@@ -263,6 +275,7 @@
     if (!btn) return;
     e.preventDefault();
     const added = Wishlist.toggle(btn.dataset.wish);
+    if (added) track("wishlist-add", { product: btn.dataset.wish });
     document.querySelectorAll(`[data-wish="${CSS.escape(btn.dataset.wish)}"]`).forEach((b) => b.classList.toggle("active", added));
     toast(added ? "Added to wishlist ♥" : "Removed from wishlist");
     document.dispatchEvent(new CustomEvent("wishlist:change"));
@@ -433,6 +446,7 @@
     if (!bagItems.length) return e.preventDefault();
     const order = makeOrder(bagItems);
     Orders.save(order);
+    track("whatsapp-order", { from: "bag", items: bagItems.length, total: order.total });
     a.href = orderWhatsApp(order);
     setTimeout(() => { Bag.clear(); renderBag(); toast(`Order ${order.id} saved in My Orders`); }, 300);
   });
@@ -514,6 +528,7 @@
         try {
           // Google Forms doesn't allow reading the reply from another website, so a sent request counts as success
           await fetch(C.reviewForm.action, { method: "POST", mode: "no-cors", body });
+          track("review-written", { rating, product: modal.dataset.product || "home" });
           form.hidden = true;
           document.getElementById("review-done").hidden = false;
           form.reset(); rating = 0; paint(0);
@@ -634,6 +649,11 @@
     new Promise((resolve) => setTimeout(() => resolve({}), 2500))
   ]).then((s) => { applySettings(s); fillSettings(); return s; });
 
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href*="wa.me/"]');
+    if (a && !a.matches("[data-checkout], #wa-order")) track("whatsapp-chat", { page: location.pathname });
+  });
+
   /* ---------- init ---------- */
   renderHeader();
   renderFooter();
@@ -642,5 +662,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, track, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();
