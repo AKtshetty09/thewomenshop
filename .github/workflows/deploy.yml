@@ -7,7 +7,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 * * * *"   # every hour: new products from the sheet
+    - cron: "0 3 * * *"    # once a day: also keeps the hourly schedule switched on
   workflow_dispatch:
 
 permissions:
@@ -23,16 +24,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Copy the website and make product pages from the sheet
         run: |
           mkdir _site
-          rsync -a --exclude '.git' --exclude '.github' --exclude 'scripts' --exclude '_site' ./ _site/
+          tar --exclude=./.git --exclude=./.github --exclude=./scripts --exclude=./_site -cf - . | tar -xf - -C _site
           python3 scripts/build_pages.py _site
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -44,4 +45,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+
+  # GitHub switches off scheduled jobs after 60 days without code changes.
+  # Re-enabling the workflow once a day keeps the hourly product updates running.
+  keepalive:
+    if: github.event.schedule == '0 3 * * *'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Keep the hourly schedule switched on
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/deploy.yml/enable"
