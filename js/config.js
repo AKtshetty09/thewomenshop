@@ -21,6 +21,19 @@ window.SHOP_CONFIG = {
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=Ongole%2C+Andhra+Pradesh",
   email: "", // add an email later if you want it shown in the footer
 
+  // Payment details for the "pay for your order" page (pay.html).
+  // Make a payment link for a customer at twshop.in/paylink.html
+  payment: {
+    upiId: "thewomenshop@ybl",
+    upiName: "POKALA KAVYA",
+    bank: {
+      holder: "Pokala Kavya",
+      name: "Union Bank of India",
+      account: "330702010167405",
+      ifsc: "UBIN0533076"
+    }
+  },
+
   // Shown in the bag and on every product page
   policyNote: "Prepaid orders only (No COD) · No refunds",
   shippingTime: "7–8 working days",

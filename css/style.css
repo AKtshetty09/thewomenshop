@@ -543,3 +543,36 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .sg-empty a { color: var(--primary); font-weight: 600; }
 @media (max-width: 640px) { .search-suggest { min-width: 0; } }
 @media (min-width: 641px) { .search-suggest { left: auto; width: 420px; } }
+
+/* ---------- pay page & payment link maker ---------- */
+.pay-page { max-width: 560px; padding: 30px 0 70px; }
+.pay-card { border: 1px solid var(--line); border-radius: 22px; padding: 30px 26px; background: #fff; box-shadow: var(--shadow); }
+.pay-card h1 { font-family: var(--font-display); font-size: clamp(26px, 5vw, 34px); margin: 6px 0 18px; }
+.pay-ok { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 5px 12px; border-radius: 999px; background: #e7f8ee; color: var(--success); font-size: 13px; font-weight: 600; }
+.pay-ok .ico { width: 16px; height: 16px; }
+.pay-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; border-radius: 14px; background: var(--bg-soft); margin-bottom: 20px; }
+.pay-sum small { display: block; color: var(--muted); font-size: 12px; }
+.pay-sum strong { font-size: 15px; word-break: break-all; }
+.pay-sum .pay-amt { font-size: 26px; color: var(--ink); }
+.pay-upi { padding: 16px; font-size: 16px; }
+.pay-qr { display: flex; align-items: center; gap: 18px; margin: 20px 0; padding: 16px; border: 1px dashed var(--line); border-radius: 14px; }
+.pay-qr #qr { width: 150px; flex: none; }
+.pay-qr #qr svg { width: 100%; height: auto; display: block; }
+.pay-qr p { margin: 0; font-weight: 600; font-size: 14px; }
+.pay-rows { display: grid; gap: 8px; margin: 10px 0; }
+.pay-row { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; font-size: 14px; }
+.pay-row span { color: var(--muted); }
+.pay-row strong { word-break: break-all; }
+.pay-row button { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--primary); }
+.pay-row button:hover { border-color: var(--primary); }
+.pay-bank { margin: 14px 0; padding: 12px 16px; border-radius: 14px; background: var(--bg-soft); }
+.pay-bank summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.pay-after { margin: 22px 0 16px; padding-top: 18px; border-top: 1px solid var(--line); }
+.pay-after h4 { font-size: 15px; margin-bottom: 4px; }
+.pay-after p { margin: 0 0 12px; color: var(--ink-2); font-size: 14px; }
+.mk-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.mk-actions .btn { flex: 1; padding: 12px 16px; font-size: 14px; }
+@media (max-width: 480px) {
+  .pay-qr { flex-direction: column; text-align: center; }
+  .pay-row { grid-template-columns: 90px 1fr auto; }
+}

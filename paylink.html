@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Make a payment link | The Women Shop</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#e0336f">
+  <link rel="icon" href="assets/logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=20261101d">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="container pay-page">
+    <div class="pay-card">
+      <h1>Make a payment link</h1>
+      <p class="muted small">For The Women Shop only. Fill in the confirmed order and send the message to your customer.</p>
+
+      <form id="mk" novalidate>
+        <label class="field-label" for="mk-order">Order ID *</label>
+        <input class="field" id="mk-order" placeholder="TWS261101-1234" autocomplete="off">
+        <label class="field-label" for="mk-amount">Amount to pay (₹) *</label>
+        <input class="field" id="mk-amount" type="number" inputmode="decimal" min="1" placeholder="1899">
+        <label class="field-label" for="mk-phone">Customer's WhatsApp number (optional)</label>
+        <input class="field" id="mk-phone" type="tel" inputmode="numeric" placeholder="98765 43210">
+        <p class="size-error" id="mk-error" hidden></p>
+        <button class="btn btn-block" type="submit" style="margin-top:18px">Make link</button>
+      </form>
+
+      <div id="mk-result" hidden>
+        <label class="field-label">Message for your customer</label>
+        <textarea class="field" id="mk-msg" rows="8" readonly></textarea>
+        <div class="mk-actions">
+          <a class="btn btn-wa" id="mk-wa" target="_blank" rel="noopener"></a>
+          <button class="btn btn-outline" type="button" id="mk-copy">Copy message</button>
+          <a class="btn btn-outline" id="mk-open" target="_blank" rel="noopener">Preview page</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js?v=20261101d"></script>
+  <script src="js/data.js?v=20261101d"></script>
+  <script src="js/common.js?v=20261101d"></script>
+  <script>
+    (function () {
+      const { icon, money, toast } = window.TWS;
+      const C = window.SHOP_CONFIG;
+      const $ = (s) => document.querySelector(s);
+
+      $("#mk").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const order = $("#mk-order").value.trim().toUpperCase();
+        const amount = Number($("#mk-amount").value);
+        const digits = $("#mk-phone").value.replace(/\D/g, "").replace(/^0+/, "");
+        const fail = (m) => { $("#mk-error").textContent = m; $("#mk-error").hidden = false; };
+        if (!/^[A-Z0-9-]{3,30}$/.test(order)) return fail("Enter the Order ID from the customer's message (letters, numbers and -)");
+        if (!(amount > 0 && amount <= 100000)) return fail("Enter the amount to pay");
+        if (digits && digits.length !== 10 && digits.length !== 12) return fail("Enter a 10-digit mobile number, or leave it empty");
+        $("#mk-error").hidden = true;
+
+        const link = `https://${C.domain}/pay.html?o=${encodeURIComponent(order)}&a=${amount}`;
+        const msg = `Hi! Your order *${order}* is confirmed ✅\n\nAmount to pay: *${money(amount)}*\nPay here (any UPI app): ${link}\n\nPlease send the payment screenshot after paying. Thank you for shopping with ${C.name} 💖`;
+        const phone = digits.length === 10 ? `91${digits}` : digits;
+
+        $("#mk-msg").value = msg;
+        $("#mk-wa").href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        $("#mk-wa").innerHTML = `${icon("whatsapp")} ${phone ? "Send to customer" : "Send on WhatsApp"}`;
+        $("#mk-open").href = link;
+        $("#mk-result").hidden = false;
+      });
+
+      $("#mk-copy").addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText($("#mk-msg").value); toast("Message copied"); }
+        catch (x) { $("#mk-msg").select(); toast("Select the message and copy it"); }
+      });
+    })();
+  </script>
+</body>
+</html>
