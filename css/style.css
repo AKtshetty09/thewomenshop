@@ -576,3 +576,14 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
   .pay-qr { flex-direction: column; text-align: center; }
   .pay-row { grid-template-columns: 90px 1fr auto; }
 }
+
+/* pay page: choose your UPI app */
+.pay-choose { margin: 0 0 10px; font-weight: 700; font-size: 15px; }
+.pay-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pay-app { display: flex; align-items: center; justify-content: center; min-height: 54px; padding: 10px; border-radius: 14px; font-weight: 700; font-size: 15px; color: #fff; transition: transform .15s, box-shadow .15s; }
+.pay-app:active { transform: scale(.97); }
+.pay-app:hover { box-shadow: 0 8px 18px rgba(0, 0, 0, .15); }
+.app-phonepe { background: #5f259f; }
+.app-gpay { background: #fff; color: #1f1f1f; border: 1.5px solid #dadce0; }
+.app-paytm { background: #00baf2; }
+.app-other { background: var(--bg-soft); color: var(--ink); border: 1.5px solid var(--line); }
