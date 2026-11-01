@@ -22,7 +22,7 @@ window.SHOP_CONFIG = {
   email: "", // add an email later if you want it shown in the footer
 
   // Payment details for the "pay for your order" page (pay.html).
-  // Make a payment link for a customer at twshop.in/paylink.html
+  // Make a payment link for a customer at twshop.in/paylink
   payment: {
     upiId: "thewomenshop@ybl",
     upiName: "POKALA KAVYA",

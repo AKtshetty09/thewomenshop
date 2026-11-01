@@ -65,7 +65,7 @@
         if (digits && digits.length !== 10 && digits.length !== 12) return fail("Enter a 10-digit mobile number, or leave it empty");
         $("#mk-error").hidden = true;
 
-        const link = `https://${C.domain}/pay.html?o=${encodeURIComponent(order)}&a=${amount}`;
+        const link = `https://${C.domain}/pay?o=${encodeURIComponent(order)}&a=${amount}`;
         const msg = `Hi! Your order *${order}* is confirmed ✅\n\nAmount to pay: *${money(amount)}*\nPay here (any UPI app): ${link}\n\nPlease send the payment screenshot after paying. Thank you for shopping with ${C.name} 💖`;
         const phone = digits.length === 10 ? `91${digits}` : digits;
 
