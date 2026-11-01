@@ -151,6 +151,84 @@
     t._timer = setTimeout(() => t.classList.remove("show"), 2200);
   }
 
+  /* ---------- search ---------- */
+  // "Kurtis" → "kurti", "Sarees" → "saree": plurals and capitals don't matter
+  const stem = (w) => (w.length > 4 && w.endsWith("es") && !w.endsWith("ses") ? w.slice(0, -1) : w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w);
+  const words = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9₹ ]+/g, " ").split(/\s+/).filter(Boolean).map(stem);
+
+  // Products matching every typed word (a word may be the start of a longer one: "anar" finds "anarkali").
+  // Best matches first: words in the name count more than words in the description.
+  function searchProducts(products, query) {
+    const q = words(query);
+    if (!q.length) return products.slice();
+    return products.map((p) => {
+      const name = words(p.name), cat = words(p.category);
+      const rest = words([p.description, p.fabric, p.colors.join(" "), p.id, p.tag].join(" "));
+      let score = 0;
+      for (const w of q) {
+        const hit = (list) => list.some((x) => x.startsWith(w));
+        if (hit(name)) score += 3;
+        else if (hit(cat)) score += 2;
+        else if (hit(rest)) score += 1;
+        else return null;
+      }
+      return { p, score: score + (p.inStock ? 0.5 : 0) };
+    }).filter(Boolean).sort((a, b) => b.score - a.score).map((x) => x.p);
+  }
+
+  function setupSearchSuggest() {
+    const form = document.querySelector(".site-header .search");
+    if (!form) return;
+    const input = form.querySelector("input");
+    const box = document.getElementById("search-suggest");
+    let items = [], active = -1, timer;
+
+    const close = () => { box.hidden = true; input.setAttribute("aria-expanded", "false"); active = -1; };
+    const highlight = (i) => {
+      active = i;
+      items.forEach((el, n) => el.classList.toggle("active", n === i));
+      if (items[i]) items[i].scrollIntoView({ block: "nearest" });
+    };
+
+    async function show() {
+      const q = input.value.trim();
+      if (q.length < 2) return close();
+      const products = await window.loadProducts();
+      if (input.value.trim() !== q) return; // typed more meanwhile
+      const found = searchProducts(products, q);
+      const qw = words(q);
+      const cats = [...new Set(products.map((p) => p.category))]
+        .filter((c) => qw.every((w) => words(c).some((x) => x.startsWith(w)))).slice(0, 3);
+      const all = `shop.html?q=${encodeURIComponent(q)}`;
+      box.innerHTML = `
+        ${cats.map((c) => `<a class="sg-item sg-cat" role="option" href="shop.html?cat=${encodeURIComponent(c)}">${icon("search")}<span>${esc(c)}</span><small>Category</small></a>`).join("")}
+        ${found.slice(0, 6).map((p) => `
+          <a class="sg-item" role="option" href="product.html?id=${encodeURIComponent(p.id)}">
+            <img src="${esc(thumb(p.images[0]) || PLACEHOLDER)}" alt="" loading="lazy">
+            <span class="sg-text"><strong>${esc(p.name)}</strong><small>${esc(p.category)}${p.inStock ? "" : " · Sold out"}</small></span>
+            <span class="sg-price">${money(p.price)}</span>
+          </a>`).join("")}
+        ${found.length || cats.length
+          ? `<a class="sg-item sg-all" role="option" href="${all}">See all ${found.length} result${found.length === 1 ? "" : "s"} for “${esc(q)}” ${icon("arrow")}</a>`
+          : `<p class="sg-empty">No matches for “${esc(q)}”. <a href="${waLink(`Hi! Do you have ${q}?`)}" target="_blank" rel="noopener">Ask us on WhatsApp</a></p>`}`;
+      items = [...box.querySelectorAll(".sg-item")];
+      active = -1;
+      box.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    }
+
+    input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(show, 150); });
+    input.addEventListener("focus", () => { if (input.value.trim().length >= 2) show(); });
+    input.addEventListener("keydown", (e) => {
+      if (box.hidden) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(active + 1, items.length - 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(active - 1, -1)); }
+      else if (e.key === "Enter" && items[active]) { e.preventDefault(); location.href = items[active].href; }
+      else if (e.key === "Escape") close();
+    });
+    document.addEventListener("click", (e) => { if (!form.contains(e.target)) close(); });
+  }
+
   /* ---------- product card ---------- */
   const thumb = (url) => window.toThumbUrl(url);
   function productCard(p) {
@@ -207,7 +285,8 @@
           </nav>
           <form class="search" action="shop.html" role="search">
             ${icon("search")}
-            <input name="q" type="search" placeholder="Search anarkalis, kurtis, sarees…" aria-label="Search products">
+            <input name="q" type="search" placeholder="Search anarkalis, kurtis, sarees…" aria-label="Search products" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="search-suggest">
+            <div class="search-suggest" id="search-suggest" role="listbox" hidden></div>
           </form>
           <div class="header-actions">
             <a class="icon-btn" href="wishlist.html" aria-label="Wishlist">${icon("heart")}<span class="count" data-wish-count hidden></span><small>Wishlist</small></a>
@@ -244,6 +323,7 @@
     document.querySelectorAll(".main-nav a").forEach((a) => { if (a.getAttribute("href") === here) a.classList.add("active"); });
     const q = new URLSearchParams(location.search).get("q");
     if (q) document.querySelector(".search input").value = q;
+    setupSearchSuggest();
   }
 
   // Logo image from config.js, or the shop name as text if no logo is set
@@ -562,5 +642,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();
