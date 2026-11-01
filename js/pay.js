@@ -25,7 +25,20 @@
   // keep "@" as-is and spaces as %20: some UPI apps don't decode "%40" or "+"
   const enc = (v) => encodeURIComponent(v).replace(/%40/g, "@");
   const upi = `upi://pay?pa=${enc(P.upiId)}&pn=${enc(P.upiName)}&am=${amount.toFixed(2)}&cu=INR&tn=${enc(note)}`;
-  const onPhone = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const onPhone = isAndroid || isIOS;
+
+  // One button per app, so the phone's default UPI app (e.g. WhatsApp) doesn't take over.
+  // Android: open the exact app by its package name (Play Store if it isn't installed).
+  // iPhone: each app's own link.
+  const query = upi.split("?")[1];
+  const APPS = [
+    { name: "PhonePe", cls: "app-phonepe", pkg: "com.phonepe.app", ios: `phonepe://pay?${query}` },
+    { name: "Google Pay", cls: "app-gpay", pkg: "com.google.android.apps.nbu.paisa.user", ios: `gpay://upi/pay?${query}` },
+    { name: "Paytm", cls: "app-paytm", pkg: "net.one97.paytm", ios: `paytmmp://pay?${query}` }
+  ];
+  const appLink = (a) => (isAndroid ? `intent://pay?${query}#Intent;scheme=upi;package=${a.pkg};end` : a.ios);
   const b = P.bank;
 
   box.innerHTML = `
@@ -37,8 +50,13 @@
         <div><small>Amount to pay</small><strong class="pay-amt">${money(amount)}</strong></div>
       </div>
 
-      ${onPhone ? `<a class="btn btn-block pay-upi" href="${esc(upi)}">Pay ${money(amount)} with UPI app</a>
-      <p class="muted small center">Opens Google Pay, PhonePe, Paytm or any UPI app with the amount filled in.</p>` : ""}
+      ${onPhone ? `
+      <p class="pay-choose">Pay ${money(amount)} with</p>
+      <div class="pay-apps">
+        ${APPS.map((a) => `<a class="pay-app ${a.cls}" href="${esc(appLink(a))}">${a.name}</a>`).join("")}
+        <a class="pay-app app-other" href="${esc(upi)}">Other UPI app</a>
+      </div>
+      <p class="muted small center">The amount and order ID are filled in automatically.</p>` : ""}
 
       <div class="pay-qr">
         <div id="qr" aria-label="UPI QR code"></div>
