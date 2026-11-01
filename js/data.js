@@ -109,7 +109,8 @@
         // sold out if marked "no", or if every size is in the sold-out list
         inStock: (stock === "" || yes(stock)) && !(sizes.length && soldOutSizes.length === sizes.length),
         tag: (o.tag || "").toLowerCase(),
-        featured: yes(o.featured)
+        featured: yes(o.featured),
+        madeToOrder: yes(o.made_to_order)
       };
     }).filter((p) => p.name && p.price && !p.hidden);
   }

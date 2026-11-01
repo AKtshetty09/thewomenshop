@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- This page is shown for any missing address, so load files from the site root -->
+  <base href="/">
+  <script>
+    // twshop.in/p/TWS001 before its product page was made → open the product directly
+    (function () {
+      var m = location.pathname.match(/^\/p\/([A-Za-z0-9_-]+?)(?:\.html)?\/?$/);
+      if (m) location.replace("/product.html?id=" + encodeURIComponent(m[1]));
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page not found | The Women Shop</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#e0336f">
+  <link rel="icon" type="image/png" href="assets/icon-512.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=20261101h">
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main class="container">
+    <div class="empty not-found">
+      <p class="nf-code">404</p>
+      <h4>This page isn't here</h4>
+      <p>The link may be old or mistyped. The style you're looking for might still be in our shop!</p>
+      <div class="nf-actions">
+        <a class="btn" href="shop.html">Browse all styles</a>
+        <a class="btn btn-outline" href="index.html">Go to home</a>
+      </div>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js?v=20261101h"></script>
+  <script src="js/data.js?v=20261101h"></script>
+  <script src="js/common.js?v=20261101h"></script>
+</body>
+</html>

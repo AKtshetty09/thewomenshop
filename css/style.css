@@ -600,3 +600,11 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .pay-qr img { width: 160px; flex: none; border-radius: 8px; border: 1px solid var(--line); }
 .pay-qr small { display: block; margin: 4px 0 10px; font-weight: 400; }
 .pay-save { padding: 9px 16px; font-size: 13px; }
+
+/* shipping & made-to-order notes */
+.ship-note, .mto-note { display: flex; align-items: flex-start; gap: 8px; margin: -8px 0 16px; font-size: 13px; color: var(--ink-2); }
+.ship-note .ico, .mto-note .ico { width: 17px; height: 17px; flex: none; margin-top: 1px; color: var(--primary); }
+.mto-note { padding: 8px 12px; border-radius: 10px; background: #f3ecff; color: #5b2c8f; margin-top: -4px; }
+.mto-note .ico { color: #5b2c8f; }
+.bag-summary .small { font-size: 12px; text-align: right; max-width: 60%; }
+.pay-break { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }

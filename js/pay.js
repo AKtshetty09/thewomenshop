@@ -6,6 +6,7 @@
   const params = new URLSearchParams(location.search);
   const order = (params.get("o") || "").trim();
   const amount = Number(params.get("a"));
+  const ship = Number(params.get("s")) || 0; // shipping included in the amount (optional)
   const box = document.getElementById("pay");
 
   const valid = /^[A-Za-z0-9-]{3,30}$/.test(order) && amount > 0 && amount <= 100000;
@@ -54,6 +55,7 @@
       <div class="pay-sum">
         <div><small>Order ID</small><strong>${esc(order)}</strong></div>
         <div><small>Amount to pay</small><strong class="pay-amt">${money(amount)}</strong></div>
+        ${ship > 0 && ship < amount ? `<p class="pay-break">Products ${money(amount - ship)} + Shipping ${money(ship)}</p>` : ""}
       </div>
       ${appButtons}
 
