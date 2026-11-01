@@ -31,7 +31,7 @@ window.SHOP_CONFIG = {
   // Lets you change things like the follower count from your phone.
   settingsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=158891596&single=true&output=csv",
   // "Reviews" tab, published as CSV (columns: name, city, review, photo, show). Empty = no reviews section.
-  reviewsCsvUrl: "",
+  reviewsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=206121834&single=true&output=csv",
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=0&single=true&output=csv",
 
   currency: "₹",
