@@ -579,7 +579,7 @@
     el.outerHTML = `
       <footer class="site-footer">
         <div class="container footer-grid">
-          <div>
+          <div class="footer-brand">
             ${logoHtml("logo-light")}
             <p class="footer-about">${esc(C.tagline)} ✨ Handpicked kurtis, anarkalis, sarees and dresses, quality checked and delivered all over India.</p>
             <div class="socials">
@@ -589,29 +589,29 @@
               ${C.email ? `<a href="mailto:${esc(C.email)}" aria-label="Email">${icon("mail")}</a>` : ""}
             </div>
           </div>
-          <div>
-            <h4>Shop</h4>
+          <details class="f-col" open>
+            <summary><h4>Shop</h4></summary>
             <a href="shop.html?tag=new">New Arrivals</a>
             <a href="shop.html?tag=bestseller">Bestsellers</a>
             ${C.categories.slice(0, 5).map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}">${esc(c)}</a>`).join("")}
-          </div>
-          <div>
-            <h4>Help</h4>
+          </details>
+          <details class="f-col" open>
+            <summary><h4>Help</h4></summary>
             <a href="orders.html">My Orders</a>
             <a href="${waLink("Hi! I need help choosing a size.")}" target="_blank" rel="noopener">Size help</a>
             <a href="policies.html#shipping">Shipping</a>
             <a href="policies.html#exchange">Damaged item exchange</a>
             <a href="policies.html">About &amp; Policies</a>
             <a href="policies.html#privacy">Privacy</a>
-          </div>
-          <div>
-            <h4>Contact</h4>
+          </details>
+          <details class="f-col" open>
+            <summary><h4>Contact</h4></summary>
             <a href="${waLink("Hi " + C.name + "!")}" target="_blank" rel="noopener">${icon("whatsapp")} ${esc(C.phone)}</a>
             <a href="${igProfile}" target="_blank" rel="noopener">${icon("instagram")} @${esc(C.instagramHandle)}</a>
             ${C.facebookUrl ? `<a href="${esc(C.facebookUrl)}" target="_blank" rel="noopener">${icon("facebook")} Facebook</a>` : ""}
             ${C.email ? `<a href="mailto:${esc(C.email)}">${icon("mail")} ${esc(C.email)}</a>` : ""}
             <a href="${esc(C.mapsUrl)}" target="_blank" rel="noopener">${icon("pin")} ${esc(C.location)}</a>
-          </div>
+          </details>
         </div>
         <div class="footer-bottom container">
           <span>© ${new Date().getFullYear()} ${esc(C.name)} · ${esc(C.domain)}</span>
@@ -619,6 +619,12 @@
         </div>
       </footer>
       <a class="wa-float" href="${waLink("Hi " + C.name + "!")}" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">${icon("whatsapp")}</a>`;
+
+    // Phones: footer link groups start closed (tap to open). Computers: always open.
+    const phone = window.matchMedia("(max-width: 640px)");
+    const sync = () => document.querySelectorAll(".f-col").forEach((d) => (d.open = !phone.matches));
+    sync();
+    phone.addEventListener("change", sync);
   }
 
   /* ---------- values from the sheet's Settings tab ---------- */
