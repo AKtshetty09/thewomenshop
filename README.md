@@ -13,3 +13,5 @@ top bar messages and home banners (see `settings-template.csv`).
 The Reviews tab (name, city, review, photo, show) fills the home page reviews (see `reviews-template.csv`).
 
 Other shop settings (phone, categories): `js/config.js`
+
+When you change a file in css/ or js/, raise the `?v=` number in all HTML files so browsers load the new version.
