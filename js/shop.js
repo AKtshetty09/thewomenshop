@@ -103,12 +103,10 @@
         if (state.hideSoldOut && !p.inStock) return false;
         if (state.tag && p.tag !== state.tag) return false;
         if (state.max && p.price > state.max) return false;
-        if (state.q) {
-          const hay = [p.name, p.category, p.description, p.fabric, ...p.colors, p.id].join(" ").toLowerCase();
-          if (!state.q.split(/\s+/).every((w) => hay.includes(w))) return false;
-        }
         return true;
       });
+      // search: keep only matches, best first unless another sort is chosen
+      if (state.q) list = window.TWS.searchProducts(list, state.q);
 
       const sorters = {
         new: (a, b) => products.indexOf(b) - products.indexOf(a),
@@ -116,7 +114,8 @@
         high: (a, b) => b.price - a.price,
         off: (a, b) => discount(b) - discount(a)
       };
-      list = list.slice().sort(sorters[state.sort] || ((a, b) => b.inStock - a.inStock));
+      if (state.sort) list = list.slice().sort(sorters[state.sort]);
+      else if (!state.q) list = list.slice().sort((a, b) => b.inStock - a.inStock);
 
       // Title & breadcrumb
       let title = "All Products";
