@@ -33,6 +33,7 @@
     phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/>',
     pin: '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/>',
     box: '<path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'
   };
   const icon = (name, cls = "") =>
@@ -54,23 +55,31 @@
     }
   };
 
+  // A bag line is one product in one size and colour
+  const sameLine = (b, id, size, color) => b.id === id && b.size === size && (b.color || "") === (color || "");
   const Bag = {
     all: () => read("tws_bag"),
-    add(id, size, qty = 1) {
+    add(id, size, qty = 1, color = "") {
       const bag = read("tws_bag");
-      const item = bag.find((b) => b.id === id && b.size === size);
-      if (item) item.qty += qty; else bag.push({ id, size, qty });
+      const item = bag.find((b) => sameLine(b, id, size, color));
+      if (item) item.qty += qty; else bag.push({ id, size, color, qty });
       write("tws_bag", bag);
     },
-    setQty(id, size, qty) {
+    setQty(id, size, color, qty) {
       let bag = read("tws_bag");
-      const item = bag.find((b) => b.id === id && b.size === size);
+      const item = bag.find((b) => sameLine(b, id, size, color));
       if (item) item.qty = qty;
       bag = bag.filter((b) => b.qty > 0);
       write("tws_bag", bag);
     },
     clear: () => write("tws_bag", []),
     count: () => read("tws_bag").reduce((n, b) => n + b.qty, 0)
+  };
+
+  // Recently viewed products (newest first)
+  const Recent = {
+    all: () => read("tws_recent"),
+    add(id) { write("tws_recent", [id, ...read("tws_recent").filter((x) => x !== id)].slice(0, 12)); }
   };
 
   function updateCounts() {
@@ -96,11 +105,11 @@
     remove: (id) => write("tws_orders", read("tws_orders").filter((o) => o.id !== id))
   };
 
-  // items: [{ p, size, qty }] -> an order snapshot (keeps name/price/photo even if the product is later removed)
+  // items: [{ p, size, color, qty }] -> an order snapshot (keeps name/price/photo even if the product is later removed)
   function makeOrder(items) {
     const d = new Date();
     const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    const lines = items.map(({ p, size, qty }) => ({ id: p.id, name: p.name, image: p.images[0] || "", size, qty, price: p.price }));
+    const lines = items.map(({ p, size, color, qty }) => ({ id: p.id, name: p.name, image: p.images[0] || "", size, color: color || "", qty, price: p.price }));
     return {
       id: `TWS${ymd}-${Math.floor(1000 + Math.random() * 9000)}`,
       date: d.toISOString(),
@@ -112,11 +121,24 @@
   function orderWhatsApp(order) {
     const lines = order.items.map((it, i) => {
       const link = pageLink(it);
-      return `${i + 1}. *${it.name}* (${it.id})\n   Size: ${it.size} | Qty: ${it.qty} | ${money(it.price * it.qty)}` + (link ? `\n   ${link}` : "");
+      const colour = it.color ? ` | Colour: ${it.color}` : "";
+      return `${i + 1}. *${it.name}* (${it.id})\n   Size: ${it.size}${colour} | Qty: ${it.qty} | ${money(it.price * it.qty)}` + (link ? `\n   ${link}` : "");
     });
     return waLink(
       `Hi ${C.name}! I'd like to place an order.\n*Order ID: ${order.id}*\n\n${lines.join("\n")}\n\n*Total: ${money(order.total)}*\n\nPlease share payment & delivery details.`
     );
+  }
+
+  /* ---------- share a product (phone share menu, or copy the link) ---------- */
+  async function shareProduct(p) {
+    const url = pageLink(p) || location.href;
+    const data = { title: p.name, text: `${p.name}: ${money(p.price)} at ${C.name}`, url };
+    if (navigator.share) {
+      try { await navigator.share(data); } catch (e) { /* closed the share menu */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(url); toast("Link copied. Paste it anywhere to share"); }
+    catch (e) { window.open(waLink(`${data.text}\n${url}`), "_blank", "noopener"); }
   }
 
   /* ---------- toast ---------- */
@@ -130,17 +152,18 @@
   }
 
   /* ---------- product card ---------- */
+  const thumb = (url) => window.toThumbUrl(url);
   function productCard(p) {
     const off = discount(p);
     const wished = Wishlist.has(p.id);
     const badge = !p.inStock ? '<span class="badge badge-dark">Sold out</span>'
       : p.tag === "new" ? '<span class="badge">New</span>'
       : p.tag === "bestseller" ? '<span class="badge badge-gold">Bestseller</span>' : "";
-    const img2 = p.images[1] ? `<img class="img-alt" src="${esc(p.images[1])}" alt="" loading="lazy">` : "";
+    const img2 = p.images[1] ? `<img class="img-alt" src="${esc(thumb(p.images[1]))}" alt="" loading="lazy">` : "";
     return `
       <article class="card ${p.inStock ? "" : "is-soldout"}">
         <a class="card-media" href="product.html?id=${encodeURIComponent(p.id)}">
-          <img src="${esc(p.images[0] || PLACEHOLDER)}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
+          <img src="${esc(thumb(p.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
           ${img2}
           ${badge}
         </a>
@@ -287,14 +310,14 @@
     const total = items.reduce((n, i) => n + i.p.price * i.qty, 0);
     body.innerHTML = `
       <ul class="bag-list">
-        ${items.map(({ p, size, qty }) => `
+        ${items.map(({ p, size, color, qty }) => `
           <li class="bag-item">
-            <a href="product.html?id=${encodeURIComponent(p.id)}"><img src="${esc(p.images[0] || PLACEHOLDER)}" alt="${esc(p.name)}"></a>
+            <a href="product.html?id=${encodeURIComponent(p.id)}"><img src="${esc(thumb(p.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}"></a>
             <div>
               <h4>${esc(p.name)}</h4>
-              <p class="muted">Size: ${esc(size)}</p>
+              <p class="muted">Size: ${esc(size)}${color ? ` · Colour: ${esc(color)}` : ""}</p>
               <p class="price"><strong>${money(p.price)}</strong>${p.mrp > p.price ? `<s>${money(p.mrp)}</s>` : ""}</p>
-              <div class="qty" data-id="${esc(p.id)}" data-size="${esc(size)}">
+              <div class="qty" data-id="${esc(p.id)}" data-size="${esc(size)}" data-color="${esc(color || "")}">
                 <button data-qty="-1" aria-label="Decrease">−</button><span>${qty}</span><button data-qty="1" aria-label="Increase">+</button>
                 <button class="remove" data-qty="remove" aria-label="Remove">${icon("trash")}</button>
               </div>
@@ -316,10 +339,10 @@
     const b = e.target.closest("[data-qty]");
     if (!b) return;
     const box = b.closest(".qty");
-    const item = Bag.all().find((i) => i.id === box.dataset.id && i.size === box.dataset.size);
+    const item = Bag.all().find((i) => sameLine(i, box.dataset.id, box.dataset.size, box.dataset.color));
     if (!item) return;
     const v = b.dataset.qty;
-    Bag.setQty(item.id, item.size, v === "remove" ? 0 : Math.max(0, Math.min(10, item.qty + Number(v))));
+    Bag.setQty(item.id, item.size, item.color, v === "remove" ? 0 : Math.max(0, Math.min(10, item.qty + Number(v))));
     renderBag();
   });
 
@@ -364,6 +387,7 @@
             <a href="policies.html#shipping">Shipping</a>
             <a href="policies.html#exchange">Damaged item exchange</a>
             <a href="policies.html">About &amp; Policies</a>
+            <a href="policies.html#privacy">Privacy</a>
           </div>
           <div>
             <h4>Contact</h4>
@@ -436,5 +460,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();

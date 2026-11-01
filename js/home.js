@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, productCard, igProfile, settingsReady, fillText } = window.TWS;
+  const { esc, icon, productCard, igProfile, settingsReady, fillText, Recent } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
 
@@ -54,7 +54,7 @@
     const inStockFirst = (a, b) => b.inStock - a.inStock;
 
     /* categories: picture = first product in that category */
-    $("#cats").innerHTML = C.categories.map((c) => {
+    $("#cats").innerHTML = C.categories.filter((c) => products.some((p) => p.category === c)).map((c) => {
       const items = products.filter((p) => p.category === c);
       const pic = items.find((p) => p.images[0]);
       return `
@@ -93,6 +93,27 @@
     $("#insta-grid").innerHTML = products.filter((p) => p.images[0]).slice(0, 6)
       .map((p) => `<a href="${igProfile}" target="_blank" rel="noopener" aria-label="Instagram"><img src="${esc(p.images[0])}" alt="" loading="lazy"></a>`).join("");
 
+    /* recently viewed */
+    const recent = Recent.all().map((id) => products.find((p) => p.id === id)).filter(Boolean).slice(0, 10);
+    if (recent.length) {
+      $("#recent").innerHTML = recent.map(productCard).join("");
+      $("#recent-wrap").hidden = false;
+    }
+
+    observeReveal();
+  });
+
+  /* customer reviews */
+  window.loadReviews().then((reviews) => {
+    if (!reviews.length) return;
+    $("#reviews").innerHTML = reviews.slice(0, 12).map((r) => `
+      <figure class="review">
+        ${r.photo ? `<img src="${esc(window.toThumbUrl(r.photo))}" alt="Photo from ${esc(r.name)}" loading="lazy">` : ""}
+        <blockquote>“${esc(r.text)}”</blockquote>
+        <figcaption><strong>${esc(r.name)}</strong>${r.city ? `<span>${esc(r.city)}</span>` : ""}</figcaption>
+      </figure>`).join("");
+    $("#reviews-more").href = igProfile;
+    $("#reviews-wrap").hidden = false;
     observeReveal();
   });
 

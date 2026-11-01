@@ -1,4 +1,4 @@
-id,name,category,price,mrp,sizes,colors,image1,image2,image3,image4,image5,description,fabric,in_stock,tag,featured
-TWS001,Red Georgette Anarkali with Dupatta,Anarkali Sets,1899,3299,"M, L, XL, XXL",Red,https://images.unsplash.com/photo-1638457130899-121a2dc59513?w=800,,,,,Floor-length red anarkali with matching pants and a bordered dupatta.,Georgette,yes,bestseller,yes
-TWS002,Mustard Yellow A-Line Kurti,A-Line Kurtis,799,1399,"M, L, XL, XXL",Mustard,https://images.unsplash.com/photo-1760287363878-1a09af715b80?w=800,,,,,Sunny mustard A-line kurti with embroidered neckline.,Rayon,yes,new,no
-TWS003,Blush Pink Top & Dupatta Set,Top & Dupatta Sets,1299,2299,"M, L, XL",Blush Pink,https://images.unsplash.com/photo-1649139798873-683a18de1151?w=800,,,,,Blush pink top with printed dupatta and palazzo.,Cotton,no,,no
+id,name,category,price,mrp,sizes,sold_out_sizes,colors,image1,image2,image3,image4,image5,description,fabric,in_stock,tag,featured
+TWS001,Red Georgette Anarkali with Dupatta,Anarkali Sets,1899,3299,"M, L, XL, XXL",,Red,https://images.unsplash.com/photo-1638457130899-121a2dc59513?w=800,,,,,Floor-length red anarkali with matching pants and a bordered dupatta.,Georgette,yes,bestseller,yes
+TWS002,Mustard Yellow A-Line Kurti,A-Line Kurtis,799,1399,"M, L, XL, XXL",,Mustard,https://images.unsplash.com/photo-1760287363878-1a09af715b80?w=800,,,,,Sunny mustard A-line kurti with embroidered neckline.,Rayon,yes,new,no
+TWS003,Blush Pink Top & Dupatta Set,Top & Dupatta Sets,1299,2299,"M, L, XL",,Blush Pink,https://images.unsplash.com/photo-1649139798873-683a18de1151?w=800,,,,,Blush pink top with printed dupatta and palazzo.,Cotton,no,,no
