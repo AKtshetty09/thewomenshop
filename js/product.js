@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
+  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, stars, reviewCard, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
   const id = new URLSearchParams(location.search).get("id");
@@ -189,6 +189,23 @@
       toast(added ? "Added to wishlist ♥" : "Removed from wishlist");
     });
     $("#share").addEventListener("click", () => shareProduct(p));
+
+    /* reviews for this product */
+    const wr = $("#write-review");
+    wr.dataset.product = p.id;
+    wr.dataset.productName = p.name;
+    $("#product-reviews").hidden = false;
+    window.loadReviews().then((all) => {
+      const mine = all.filter((r) => r.product === p.id);
+      if (!mine.length) {
+        $("#review-summary").textContent = "No reviews yet. Bought this? Tell others what you think.";
+        return;
+      }
+      const rated = mine.filter((r) => r.rating);
+      const avg = rated.length ? rated.reduce((n, r) => n + r.rating, 0) / rated.length : 0;
+      $("#review-summary").innerHTML = `${avg ? `${stars(Math.round(avg))} <strong>${avg.toFixed(1)}</strong> · ` : ""}${mine.length} review${mine.length === 1 ? "" : "s"}`;
+      $("#product-review-list").innerHTML = mine.map(reviewCard).join("");
+    });
 
     /* similar products */
     const similar = products.filter((x) => x.id !== p.id && x.category === p.category)

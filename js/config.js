@@ -30,8 +30,21 @@ window.SHOP_CONFIG = {
   // "settings" tab of the same sheet, published as CSV (columns: setting, value).
   // Lets you change things like the follower count from your phone.
   settingsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=158891596&single=true&output=csv",
-  // "Reviews" tab, published as CSV (columns: name, city, review, photo, show). Empty = no reviews section.
-  reviewsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=206121834&single=true&output=csv",
+  // Customers write reviews on the website. They are sent to this Google Form
+  // ("Review The Women Shop") and saved in its responses sheet.
+  reviewForm: {
+    action: "https://docs.google.com/forms/d/e/1FAIpQLSfOoI-iYWK67dpay20X2yhc1EkwKvMVYfLIkOqsF68n0qJIHA/formResponse",
+    fields: {
+      name: "entry.2077011482",
+      city: "entry.1113145878",
+      rating: "entry.159710625",
+      review: "entry.1695857243",
+      order: "entry.117182709",
+      product: "entry.978987016"
+    }
+  },
+  // Responses sheet published as CSV. A review is shown only after you type "yes" in its "show" column.
+  reviewsCsvUrl: "",
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=0&single=true&output=csv",
 
   currency: "₹",

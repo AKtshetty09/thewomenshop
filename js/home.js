@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, productCard, igProfile, settingsReady, fillText, Recent } = window.TWS;
+  const { esc, icon, productCard, igProfile, settingsReady, fillText, Recent, reviewCard } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
 
@@ -105,15 +105,10 @@
 
   /* customer reviews */
   window.loadReviews().then((reviews) => {
-    if (!reviews.length) return;
-    $("#reviews").innerHTML = reviews.slice(0, 12).map((r) => `
-      <figure class="review">
-        ${r.photo ? `<img src="${esc(window.toThumbUrl(r.photo))}" alt="Photo from ${esc(r.name)}" loading="lazy">` : ""}
-        <blockquote>“${esc(r.text)}”</blockquote>
-        <figcaption><strong>${esc(r.name)}</strong>${r.city ? `<span>${esc(r.city)}</span>` : ""}</figcaption>
-      </figure>`).join("");
-    $("#reviews-more").href = igProfile;
-    $("#reviews-wrap").hidden = false;
+    $("#reviews").innerHTML = reviews.length
+      ? reviews.slice(0, 12).map(reviewCard).join("")
+      : `<div class="review review-empty"><blockquote>Bought from us? Be the first to share your experience 💖</blockquote>
+         <button class="btn" type="button" data-write-review>Write a review</button></div>`;
     observeReveal();
   });
 

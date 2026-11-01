@@ -49,6 +49,7 @@
           <div class="order-actions">
             <a class="btn btn-wa" target="_blank" rel="noopener" href="${waLink(`Hi ${C.name}! I'd like an update on my order *${o.id}* (${money(o.total)}).`)}">${icon("whatsapp")} Ask about this order</a>
             <button class="btn btn-outline" data-reorder="${esc(o.id)}">${icon("bag")} Order again</button>
+            <button class="btn btn-outline" data-write-review data-order="${esc(o.id)}" data-product="${esc(o.items[0].id)}" data-product-name="${esc(o.items.length > 1 ? `Order ${o.id}` : o.items[0].name)}">★ Write a review</button>
             <button class="link-remove" data-remove-order="${esc(o.id)}">Remove</button>
           </div>
         </footer>
