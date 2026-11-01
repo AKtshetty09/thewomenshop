@@ -491,3 +491,28 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .review figcaption span { color: var(--muted); font-size: 12.5px; }
 @media (max-width: 640px) { .reviews { grid-auto-columns: 78%; } }
 .promos > .promo:only-child { grid-column: 1 / -1; }
+
+/* ---------- review stars & "Write a review" box ---------- */
+.stars { color: #f5a623; letter-spacing: 2px; font-size: 15px; }
+.stars-off { color: #e3dde5; }
+.review-empty { justify-content: center; align-items: flex-start; min-height: 160px; }
+.modal { position: fixed; inset: 0; z-index: 150; background: rgba(20, 10, 25, .55); display: none; align-items: center; justify-content: center; padding: 16px; }
+.modal.open { display: flex; }
+.modal-box { position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; border-radius: 20px; padding: 28px 26px 22px; box-shadow: var(--shadow-lg); }
+.modal-box h3 { font-family: var(--font-display); font-size: 26px; margin-bottom: 6px; }
+.modal-close { position: absolute; top: 10px; right: 10px; }
+.review-for { margin: 8px 0 0; font-weight: 600; color: var(--primary-dark); font-size: 14px; }
+.review-for:empty { display: none; }
+.field-label { display: block; margin: 16px 0 6px; font-size: 13px; font-weight: 600; }
+.field { width: 100%; padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: 14.5px; color: var(--ink); background: #fff; resize: vertical; }
+.field:focus { outline: 0; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.star-pick { display: flex; gap: 6px; }
+.star-pick button { font-size: 32px; line-height: 1; color: #e3dde5; transition: transform .15s, color .15s; }
+.star-pick button.on { color: #f5a623; }
+.star-pick button:hover { transform: scale(1.15); }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+#review-form .btn-block { margin-top: 18px; }
+.review-done { text-align: center; padding: 20px 0 6px; display: grid; justify-items: center; gap: 10px; }
+.review-done[hidden] { display: none; }
+.done-ico { font-size: 44px; }
+.star-pick button:focus { outline: none; } .star-pick button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }

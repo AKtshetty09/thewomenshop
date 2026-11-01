@@ -357,6 +357,109 @@
     setTimeout(() => { Bag.clear(); renderBag(); toast(`Order ${order.id} saved in My Orders`); }, 300);
   });
 
+  /* ---------- reviews: stars, cards and the "Write a review" box ---------- */
+  const stars = (n) => `<span class="stars" aria-label="${n} out of 5 stars">${"★".repeat(n)}<span class="stars-off">${"★".repeat(5 - n)}</span></span>`;
+
+  function reviewCard(r) {
+    return `
+      <figure class="review">
+        ${r.photo ? `<img src="${esc(thumb(r.photo))}" alt="Photo from ${esc(r.name)}" loading="lazy">` : ""}
+        ${r.rating ? stars(r.rating) : ""}
+        <blockquote>“${esc(r.text)}”</blockquote>
+        <figcaption><strong>${esc(r.name)}</strong>${r.city ? `<span>${esc(r.city)}</span>` : ""}</figcaption>
+      </figure>`;
+  }
+
+  // opts: { product, productName, order }
+  function openReviewForm(opts = {}) {
+    let modal = document.getElementById("review-modal");
+    if (!modal) {
+      document.body.insertAdjacentHTML("beforeend", `
+        <div class="modal" id="review-modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
+          <div class="modal-box">
+            <button class="icon-btn modal-close" data-close-review aria-label="Close">${icon("close")}</button>
+            <form id="review-form" novalidate>
+              <h3 id="review-title">Write a review</h3>
+              <p class="muted small">Loved your outfit? Tell us in 30 seconds. Your review helps other women shop with confidence 💖</p>
+              <p class="review-for" id="review-for"></p>
+              <label class="field-label">Your rating *</label>
+              <div class="star-pick" id="star-pick" role="radiogroup" aria-label="Rating">
+                ${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-star="${n}" aria-label="${n} star${n > 1 ? "s" : ""}">★</button>`).join("")}
+              </div>
+              <label class="field-label" for="rv-name">Your name *</label>
+              <input class="field" id="rv-name" maxlength="40" autocomplete="name">
+              <label class="field-label" for="rv-city">City</label>
+              <input class="field" id="rv-city" maxlength="40" autocomplete="address-level2">
+              <label class="field-label" for="rv-text">Your review *</label>
+              <textarea class="field" id="rv-text" rows="4" maxlength="600" placeholder="How was the fabric, fit and colour?"></textarea>
+              <input class="hp" id="rv-website" tabindex="-1" autocomplete="off" aria-hidden="true">
+              <p class="size-error" id="rv-error" hidden></p>
+              <button class="btn btn-block" type="submit" id="rv-submit">Submit review</button>
+              <p class="muted small center">Reviews appear on the website after we check them.</p>
+            </form>
+            <div class="review-done" id="review-done" hidden>
+              <div class="done-ico">💖</div>
+              <h3>Thank you!</h3>
+              <p class="muted">Your review has been sent. It will appear on the website after we check it.</p>
+              <button class="btn" type="button" data-close-review>Done</button>
+            </div>
+          </div>
+        </div>`);
+      modal = document.getElementById("review-modal");
+      const form = document.getElementById("review-form");
+      let rating = 0;
+      const paint = (n) => modal.querySelectorAll("[data-star]").forEach((b) => b.classList.toggle("on", Number(b.dataset.star) <= n));
+      modal.addEventListener("click", (e) => {
+        const st = e.target.closest("[data-star]");
+        if (st) { rating = Number(st.dataset.star); paint(rating); }
+        if (e.target === modal || e.target.closest("[data-close-review]")) modal.classList.remove("open");
+      });
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const err = document.getElementById("rv-error");
+        const val = (id) => document.getElementById(id).value.trim();
+        const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+        if (val("rv-website")) return; // filled only by spam bots
+        if (!rating) return fail("Please tap the stars to choose a rating");
+        if (!val("rv-name")) return fail("Please enter your name");
+        if (val("rv-text").length < 10) return fail("Please write a few more words about your purchase");
+        err.hidden = true;
+
+        const f = C.reviewForm.fields;
+        const body = new URLSearchParams({
+          [f.name]: val("rv-name"), [f.city]: val("rv-city"), [f.rating]: String(rating),
+          [f.review]: val("rv-text"), [f.order]: modal.dataset.order || "", [f.product]: modal.dataset.product || ""
+        });
+        const btn = document.getElementById("rv-submit");
+        btn.disabled = true; btn.textContent = "Sending…";
+        try {
+          // Google Forms doesn't allow reading the reply from another website, so a sent request counts as success
+          await fetch(C.reviewForm.action, { method: "POST", mode: "no-cors", body });
+          form.hidden = true;
+          document.getElementById("review-done").hidden = false;
+          form.reset(); rating = 0; paint(0);
+        } catch (x) {
+          fail("Couldn't send your review. Please check your internet and try again.");
+        } finally {
+          btn.disabled = false; btn.textContent = "Submit review";
+        }
+      });
+    }
+    modal.dataset.product = opts.product || "";
+    modal.dataset.order = opts.order || "";
+    document.getElementById("review-for").textContent = opts.productName ? `For: ${opts.productName}` : "";
+    document.getElementById("review-form").hidden = false;
+    document.getElementById("review-done").hidden = true;
+    document.getElementById("rv-error").hidden = true;
+    modal.classList.add("open");
+    setTimeout(() => modal.querySelector("[data-star]").focus(), 50);
+  }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.getElementById("review-modal")?.classList.remove("open"); });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-write-review]");
+    if (b) openReviewForm({ product: b.dataset.product, productName: b.dataset.productName, order: b.dataset.order });
+  });
+
   /* ---------- footer ---------- */
   function renderFooter() {
     const el = document.getElementById("site-footer");
@@ -460,5 +563,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();

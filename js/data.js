@@ -124,14 +124,23 @@
     return settings;
   }
 
-  // Reviews tab: name, city, review, photo, show
+  // Review responses: timestamp, name, city, rating, review, order id, product, (photo), show.
+  // Only rows you approved with show = yes are returned, newest first.
   function rowsToReviews(rows) {
     const headers = rows[0].map(keyOf);
     return rows.slice(1).map((r) => {
       const o = {};
       headers.forEach((h, idx) => (o[h] = (r[idx] || "").trim()));
-      return { name: o.name, city: o.city || "", text: o.review || "", photo: o.photo ? imageUrl(o.photo) : "", show: o.show };
-    }).filter((x) => x.name && x.text && !/^(no|n|false|0)$/i.test(x.show || ""));
+      return {
+        name: o.name,
+        city: o.city || "",
+        rating: Math.min(5, Math.max(0, Math.round(num(o.rating)))),
+        text: o.review || o.reiew || "",
+        product: o.product || "",
+        photo: o.photo ? imageUrl(o.photo) : "",
+        show: o.show
+      };
+    }).filter((x) => x.name && x.text && yes(x.show)).reverse();
   }
 
   /* ---------- Loader with a short cache so pages open instantly ---------- */
