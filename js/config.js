@@ -44,7 +44,7 @@ window.SHOP_CONFIG = {
     }
   },
   // Responses sheet published as CSV. A review is shown only after you type "yes" in its "show" column.
-  reviewsCsvUrl: "",
+  reviewsCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSF6LFyTARRaAuOrchV8wd5E1-jIxXDw-8BdoPubbCeAhkgJ3SoOPMmW4EKGvhppppZ0pM2NGJUqzw0/pub?gid=1123841563&single=true&output=csv",
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS23h91-nkQe8pPL3uFhyhQDsuMJKeVojOnhbV2heQzqY0P4twZ2FOs0x5xyPTZZPQlYDEYJ-RxDbmD/pub?gid=0&single=true&output=csv",
 
   currency: "₹",
