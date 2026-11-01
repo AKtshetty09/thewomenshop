@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Women Shop | Anarkalis, Kurtis, Sarees & Ethnic Wear Online</title>
   <meta name="description" content="Shop anarkali sets, A-line kurtis, top &amp; dupatta sets, kurta sets, sarees and dresses at The Women Shop, Ongole. Order easily on WhatsApp.">
-  <meta name="theme-color" content="#e0336f">
-  <link rel="icon" type="image/png" href="assets/icon-512.png">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <!-- Tells Google the site's name and logo -->
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@graph": [
+    {"@type": "WebSite", "name": "The Women Shop", "alternateName": ["TWS", "twshop.in"], "url": "https://twshop.in/"},
+    {"@type": "Organization", "name": "The Women Shop", "url": "https://twshop.in/", "logo": "https://twshop.in/assets/icon-512.png",
+     "sameAs": ["https://www.instagram.com/thewomenshop.in/", "https://www.facebook.com/share/1KQErP9LVb/"]}
+  ]}
+  </script>
   <!-- Visitor statistics (Umami: no cookies, no personal data) -->
   <script defer src="https://cloud.umami.is/script.js" data-website-id="20f2fee5-4a6b-429d-828e-dd71cae53dab"></script>
   <!-- Link preview (WhatsApp, Instagram, Facebook) -->
@@ -21,7 +30,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20261101h">
+  <link rel="stylesheet" href="css/style.css?v=20261102a">
 </head>
 <body>
   <div id="site-header"></div>
@@ -32,9 +41,6 @@
       <!-- slides come from heroSlides in js/config.js -->
       <div class="hero-dots"></div>
     </section>
-
-    <!-- Promises -->
-    <div class="container promises" id="promises"></div>
 
     <!-- Categories -->
     <section class="section section-soft">
@@ -74,14 +80,6 @@
       </div>
     </section>
 
-    <!-- Recently viewed (only shown to returning visitors) -->
-    <section class="section" id="recent-wrap" hidden style="padding-top:0">
-      <div class="container">
-        <div class="section-head"><div><h2>Recently Viewed</h2><p>Pick up where you left off</p></div></div>
-        <div class="scroller" id="recent"></div>
-      </div>
-    </section>
-
     <!-- Price deals -->
     <section class="container reveal">
       <div class="deal">
@@ -98,6 +96,14 @@
       </div>
     </section>
 
+    <!-- Recently viewed (only shown to returning visitors) -->
+    <section class="section" id="recent-wrap" hidden>
+      <div class="container">
+        <div class="section-head"><div><h2>Recently Viewed</h2><p>Pick up where you left off</p></div></div>
+        <div class="scroller" id="recent"></div>
+      </div>
+    </section>
+
     <!-- Customer reviews (approved reviews from the review responses sheet) -->
     <section class="section section-soft" id="reviews-wrap">
       <div class="container">
@@ -107,6 +113,11 @@
         </div>
         <div class="reviews scroller" id="reviews"></div>
       </div>
+    </section>
+
+    <!-- Promises (trust badges) -->
+    <section class="trust" aria-label="Why shop with us">
+      <div class="container promises" id="promises"></div>
     </section>
 
     <!-- Instagram -->
@@ -125,9 +136,9 @@
 
   <div id="site-footer"></div>
 
-  <script src="js/config.js?v=20261101h"></script>
-  <script src="js/data.js?v=20261101h"></script>
-  <script src="js/common.js?v=20261101h"></script>
-  <script src="js/home.js?v=20261101h"></script>
+  <script src="js/config.js?v=20261102a"></script>
+  <script src="js/data.js?v=20261102a"></script>
+  <script src="js/common.js?v=20261102a"></script>
+  <script src="js/home.js?v=20261102a"></script>
 </body>
 </html>
