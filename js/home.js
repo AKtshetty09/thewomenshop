@@ -33,6 +33,27 @@
     timer = setInterval(() => go(current + 1), 6000);
   }
   [...dots.children].forEach((d, i) => d.addEventListener("click", () => go(i)));
+
+  // ‹ › arrows on computers, swipe on phones; changing slides by hand restarts the 6-second timer
+  const hero = $("#hero");
+  hero.insertAdjacentHTML("beforeend", `
+    <button class="hero-arrow prev" aria-label="Previous banner">‹</button>
+    <button class="hero-arrow next" aria-label="Next banner">›</button>`);
+  hero.querySelector(".hero-arrow.prev").addEventListener("click", () => go(current - 1));
+  hero.querySelector(".hero-arrow.next").addEventListener("click", () => go(current + 1));
+  let startX = 0, startY = 0;
+  hero.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+    clearInterval(timer); // hold the slide while the finger is down
+  }, { passive: true });
+  hero.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - startX, dy = e.changedTouches[0].clientY - startY;
+    // only a sideways swipe changes the slide, so scrolling the page still works
+    go(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) ? current + (dx < 0 ? 1 : -1) : current);
+  });
+  // pause while the mouse is over the banner
+  hero.addEventListener("mouseenter", () => clearInterval(timer));
+  hero.addEventListener("mouseleave", () => go(current));
   go(0);
   }
 
