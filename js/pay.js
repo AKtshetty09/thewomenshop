@@ -1,4 +1,4 @@
-/* Pay page: pay.html?o=ORDER_ID&a=AMOUNT (links are made at paylink.html) */
+/* Pay page: pay?o=ORDER_ID&a=AMOUNT (links are made at paylink) */
 (function () {
   const { esc, icon, money, waLink, toast } = window.TWS;
   const C = window.SHOP_CONFIG;
@@ -20,7 +20,7 @@
     return;
   }
 
-  // Standard UPI payment link: opens GPay / PhonePe / Paytm with everything filled in
+  // Standard UPI payment link (used in the QR, and in the app buttons for business accounts)
   const note = `Order ${order}`;
   // keep "@" as-is and spaces as %20: some UPI apps don't decode "%40" or "+"
   const enc = (v) => encodeURIComponent(v).replace(/%40/g, "@");
@@ -29,9 +29,8 @@
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const onPhone = isAndroid || isIOS;
 
-  // One button per app, so the phone's default UPI app (e.g. WhatsApp) doesn't take over.
-  // Android: open the exact app by its package name (Play Store if it isn't installed).
-  // iPhone: each app's own link.
+  // One-tap app buttons. UPI apps decline these for personal UPI IDs ("declined for security
+  // reasons"), so they only show when config.payment.appButtons is true (business/merchant UPI ID).
   const query = upi.split("?")[1];
   const APPS = [
     { name: "PhonePe", cls: "app-phonepe", pkg: "com.phonepe.app", ios: `phonepe://pay?${query}` },
@@ -39,7 +38,14 @@
     { name: "Paytm", cls: "app-paytm", pkg: "net.one97.paytm", ios: `paytmmp://pay?${query}` }
   ];
   const appLink = (a) => (isAndroid ? `intent://pay?${query}#Intent;scheme=upi;package=${a.pkg};end` : a.ios);
+  const appButtons = P.appButtons && onPhone ? `
+      <p class="pay-choose">Pay ${money(amount)} with</p>
+      <div class="pay-apps">
+        ${APPS.map((a) => `<a class="pay-app ${a.cls}" href="${esc(appLink(a))}">${a.name}</a>`).join("")}
+        <a class="pay-app app-other" href="${esc(upi)}">Other UPI app</a>
+      </div>` : "";
   const b = P.bank;
+  const amt = amount % 1 ? amount.toFixed(2) : String(amount);
 
   box.innerHTML = `
     <div class="pay-card">
@@ -49,23 +55,32 @@
         <div><small>Order ID</small><strong>${esc(order)}</strong></div>
         <div><small>Amount to pay</small><strong class="pay-amt">${money(amount)}</strong></div>
       </div>
+      ${appButtons}
 
-      ${onPhone ? `
-      <p class="pay-choose">Pay ${money(amount)} with</p>
-      <div class="pay-apps">
-        ${APPS.map((a) => `<a class="pay-app ${a.cls}" href="${esc(appLink(a))}">${a.name}</a>`).join("")}
-        <a class="pay-app app-other" href="${esc(upi)}">Other UPI app</a>
-      </div>
-      <p class="muted small center">The amount and order ID are filled in automatically.</p>` : ""}
+      <h4 class="pay-h">Pay with any UPI app</h4>
+      <ol class="pay-steps">
+        <li>
+          <span>Copy our UPI ID</span>
+          <div class="pay-copy"><strong>${esc(P.upiId)}</strong><button class="btn" data-copy="${esc(P.upiId)}">Copy</button></div>
+          <small class="muted">Name: ${esc(P.upiName)}</small>
+        </li>
+        <li><span>Open Google Pay, PhonePe, Paytm or your bank app → <strong>Pay to UPI ID</strong> → paste it</span></li>
+        <li>
+          <span>Enter the amount and add the order ID in the note</span>
+          <div class="pay-copy"><strong>${money(amount)}</strong><button class="btn btn-outline" data-copy="${esc(amt)}">Copy amount</button></div>
+          <div class="pay-copy"><strong>${esc(order)}</strong><button class="btn btn-outline" data-copy="${esc(note)}">Copy note</button></div>
+        </li>
+      </ol>
 
       <div class="pay-qr">
-        <div id="qr" aria-label="UPI QR code"></div>
-        <p>${onPhone ? "Or scan this QR from another phone" : "Scan with any UPI app to pay"}<br><small class="muted">Amount and order ID are filled in automatically</small></p>
-      </div>
-
-      <div class="pay-rows">
-        <div class="pay-row"><span>UPI ID</span><strong>${esc(P.upiId)}</strong><button data-copy="${esc(P.upiId)}">Copy</button></div>
-        <div class="pay-row"><span>Name</span><strong>${esc(P.upiName)}</strong></div>
+        <img id="qr" alt="UPI QR code to pay ${esc(money(amount))}">
+        <div>
+          <p>${onPhone ? "Or pay with this QR code" : "Scan with any UPI app to pay"}</p>
+          <small class="muted">${onPhone
+            ? "Save it, then in your UPI app tap <strong>Scan</strong> → <strong>gallery / photo</strong> and pick it. Or scan it from another phone."
+            : "The amount and order ID are filled in automatically."}</small>
+          ${onPhone ? `<a class="btn btn-outline pay-save" id="qr-save" download="TheWomenShop-${esc(order)}.png">Save QR to gallery</a>` : ""}
+        </div>
       </div>
 
       ${b && b.account ? `
@@ -88,16 +103,33 @@
       <p class="policy-note">${icon("info")} <span>${esc(C.policyNote)} · <a href="policies.html">Details</a></span></p>
     </div>`;
 
-  // QR code of the same UPI link
+  // QR as a PNG picture (so it can be saved to the gallery), with the amount and order printed below
   const qr = qrcode(0, "M");
   qr.addData(upi);
   qr.make();
-  document.getElementById("qr").innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  const n = qr.getModuleCount(), cell = 8, pad = 4 * cell, size = n * cell + pad * 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size + 70;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#fff";
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = "#000";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) g.fillRect(pad + c * cell, pad + r * cell, cell, cell);
+  g.textAlign = "center";
+  g.font = "bold 26px sans-serif";
+  g.fillText(`${money(amount)} · ${C.name}`, size / 2, size + 22);
+  g.font = "20px sans-serif";
+  g.fillText(`Order ${order}`, size / 2, size + 52);
+  const png = canvas.toDataURL("image/png");
+  document.getElementById("qr").src = png;
+  const save = document.getElementById("qr-save");
+  if (save) save.href = png;
 
   box.addEventListener("click", async (e) => {
     const c = e.target.closest("[data-copy]");
     if (!c) return;
-    try { await navigator.clipboard.writeText(c.dataset.copy); toast("Copied"); }
+    try { await navigator.clipboard.writeText(c.dataset.copy); toast(`Copied: ${c.dataset.copy}`); }
     catch (x) { toast(c.dataset.copy); }
   });
 })();

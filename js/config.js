@@ -26,6 +26,9 @@ window.SHOP_CONFIG = {
   payment: {
     upiId: "thewomenshop@ybl",
     upiName: "POKALA KAVYA",
+    // One-tap PhonePe / Google Pay / Paytm buttons. UPI apps block these for personal UPI IDs,
+    // so keep false until you use a business (merchant) UPI ID from PhonePe Business etc.
+    appButtons: false,
     bank: {
       holder: "Pokala Kavya",
       name: "Union Bank of India",
