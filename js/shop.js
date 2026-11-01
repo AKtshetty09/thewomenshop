@@ -173,6 +173,10 @@
     }
     $("#load-more").addEventListener("click", showMore);
     render();
+    if (state.q) {
+      const n = window.TWS.searchProducts(products, state.q).length;
+      window.TWS.track(n ? "search" : "search-no-results", { q: state.q, results: n });
+    }
   });
 
   /* mobile filter panel */

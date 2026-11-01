@@ -129,6 +129,7 @@
   box.addEventListener("click", async (e) => {
     const c = e.target.closest("[data-copy]");
     if (!c) return;
+    window.TWS.track("pay-copy", { what: c.dataset.copy === P.upiId ? "upi-id" : c.dataset.copy.startsWith("Order") ? "note" : /^\d+(\.\d+)?$/.test(c.dataset.copy) ? "amount" : "bank" });
     try { await navigator.clipboard.writeText(c.dataset.copy); toast(`Copied: ${c.dataset.copy}`); }
     catch (x) { toast(c.dataset.copy); }
   });

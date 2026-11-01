@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, stars, reviewCard, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
+  const { esc, icon, money, discount, productCard, Bag, Wishlist, Orders, Recent, shareProduct, thumb, track, stars, reviewCard, makeOrder, orderWhatsApp, toast, waLink, settingsReady, fillText, PLACEHOLDER } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
   const id = new URLSearchParams(location.search).get("id");
@@ -171,6 +171,7 @@
     $("#add-bag").addEventListener("click", () => {
       if (missingChoice()) return;
       Bag.add(p.id, size || "Free Size", 1, color);
+      track("add-to-bag", { product: p.id });
       toast("Added to bag 🛍️");
       window.TWS.openBag();
     });
@@ -180,15 +181,17 @@
       if (missingChoice()) return e.preventDefault();
       const order = makeOrder([{ p, size: size || "Free Size", color, qty: 1 }]);
       Orders.save(order);
+      track("whatsapp-order", { from: "product", product: p.id, total: order.total });
       waBtn.href = orderWhatsApp(order);
       toast(`Order ${order.id} saved in My Orders`);
     });
     $("#wish").addEventListener("click", (e) => {
       const added = Wishlist.toggle(p.id);
+      if (added) track("wishlist-add", { product: p.id });
       e.currentTarget.classList.toggle("active", added);
       toast(added ? "Added to wishlist ♥" : "Removed from wishlist");
     });
-    $("#share").addEventListener("click", () => shareProduct(p));
+    $("#share").addEventListener("click", () => { track("share", { product: p.id }); shareProduct(p); });
 
     /* reviews for this product */
     const wr = $("#write-review");
