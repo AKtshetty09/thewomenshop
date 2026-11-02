@@ -299,7 +299,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .pdp-price s { color: var(--muted); font-size: 18px; }
 .pdp-price .off { color: #ff7a2f; font-weight: 700; font-size: 18px; }
 .tax-note { margin: 0 0 20px; font-size: 13px; color: var(--success); font-weight: 500; }
-.stock-out { display: inline-block; margin-bottom: 16px; padding: 6px 14px; border-radius: 8px; background: #fde8e8; color: #b42318; font-weight: 600; font-size: 13.5px; }
+.stock-out { margin: 0 0 16px; padding: 10px 14px; border-radius: 10px; background: #fdecef; color: #8a1c3c; font-size: 14px; line-height: 1.5; }
 .opt-block { padding: 20px 0; border-top: 1px solid var(--line); }
 .opt-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .opt-head h4 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
@@ -494,7 +494,8 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
               linear-gradient(-45deg, transparent calc(50% - .7px), #cfc7d3 calc(50% - .7px), #cfc7d3 calc(50% + .7px), transparent calc(50% + .7px)), var(--bg-soft); }
 .sizes button.sold:hover { border-color: var(--line); color: var(--muted); }
 .colors-pick button { min-width: 0; height: 44px; padding: 0 18px; font-weight: 500; }
-.opt-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.opt-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.opt-note strong { color: var(--ink); }
 .opt-note a { color: var(--primary); font-weight: 600; }
 .pdp-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .share-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--ink-2); transition: .2s; }
@@ -663,3 +664,13 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .check .swatch { margin-right: 2px; }
 .f-scroll { max-height: 260px; overflow-y: auto; padding-right: 4px; }
 .pill .swatch { width: 12px; height: 12px; }
+
+/* sold-out sizes: Notify me button */
+.notify-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; border: 1px solid #b7e8c9; background: #effaf3; color: #127a3e !important; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.notify-btn:hover { background: #dff5e8; }
+.notify-btn .ico { width: 16px; height: 16px; }
+/* colour shown with another colour's photos */
+.shown-in { position: absolute; left: 12px; bottom: 12px; max-width: calc(100% - 90px); padding: 5px 12px; border-radius: 999px; background: rgba(36, 26, 42, .78); color: #fff; font-size: 12px; font-weight: 500; z-index: 2; }
+.card-shown { position: absolute; left: 8px; bottom: 8px; padding: 3px 9px; border-radius: 999px; background: rgba(36, 26, 42, .75); color: #fff; font-size: 10.5px; font-weight: 500; }
+.vp-dot { display: grid; place-items: center; background: var(--bg-soft); }
+.swatch.big { width: 34px; height: 34px; }
