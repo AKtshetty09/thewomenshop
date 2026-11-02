@@ -27,6 +27,7 @@
   let orders = { list: [], url: "", error: "" }; // customer orders (private sheet)
   let order = null;      // the order on the order screen
   let loadedAt = 0;      // when everything was last read from the sheets
+  let nav = 0;           // goes up on every screen change, so a slow save or reload never covers a newer screen
 
   function toast(msg) {
     const t = $("#adm-toast");
@@ -119,6 +120,7 @@
         sleeve_type: b.sleeve_type || b.sleeve || "", dupatta: b.dupatta || "", bottom: b.bottom || "",
         other_details: b.other_details || "", tag: (b.tag || "").toLowerCase(), featured: yes(b.featured),
         made_to_order: yes(b.made_to_order), hidden: /^(hide|hidden|draft)$/i.test(b.in_stock || ""),
+        position: Number(rs.map((r) => r.o.position).find((v) => Number(v) > 0)) || 0,
         split: false, colours: []
       };
       const ordered = [base, ...rs.filter((r) => r !== base)];
@@ -141,38 +143,66 @@
     });
   }
 
-  /* ---------- product list ---------- */
-  let listQuery = "", listFilter = "all";
-  async function showList(highlight, reload = false) {
-    if (reload && !(await refresh())) return;
+  /* ---------- products: list (with Select for bulk changes) · Quick stock · Website order ---------- */
+  let listQuery = "", listFilter = "all", productsView = "list", stockQuery = "";
+  let selecting = false;
+  const selected = new Set();
+  let stockDraft = new Map(); // product id → copy with stock changes, not saved yet
+  let orderDraft = null;      // product ids in website order, while arranging
+  const bulk = { action: "", pct: "10", dir: "down", end9: true, keepMrp: true, category: "" };
+  const BULK = [["hide", "Hide from website"], ["show", "Show on website"], ["tag-new", "Label: New arrival"],
+    ["tag-bestseller", "Label: Bestseller"], ["tag-none", "Remove the label"], ["category", "Move to another category"],
+    ["price", "Change the price (sale)"]];
+  const imgOf = (d) => d.colours.find((c) => c.images.length)?.images[0]?.url;
+
+  async function showList(highlight, reload = false, since = nav) {
+    if (reload) return reloadThen(() => showList(highlight), since);
     setTabs("products");
     editing = null;
     cfg = null;
     order = null;
     dirty = false;
+    selecting = false;
+    selected.clear();
+    stockDraft = new Map();
+    orderDraft = null;
     app.innerHTML = `
       <div class="adm-head">
         <h1>Products <small>${designs.length}</small></h1>
         <button class="btn" id="add">+ Add product</button>
       </div>
+      <div class="adm-seg">
+        ${[["list", "Products"], ["stock", "Quick stock"], ["order", "Website order"]].map(([k, l]) =>
+          `<button type="button" data-pview="${k}" class="${k === productsView ? "on" : ""}">${l}</button>`).join("")}
+      </div>
+      <div id="pv"></div>`;
+    $("#add").addEventListener("click", () => showEdit(null));
+    if (productsView === "stock") return drawStock();
+    if (productsView === "order") return drawWebOrder();
+    $("#pv").innerHTML = `
       <input class="field adm-search" id="q" type="search" placeholder="Search by name, code or category" value="${esc(listQuery)}">
       <div class="adm-chips" id="filters">
         ${[["all", "All"], ["some", "Some sold out"], ["out", "Sold out"], ["hidden", "Hidden"]].map(([k, l]) =>
           `<button type="button" data-filter="${k}" class="${k === listFilter ? "on" : ""}">${l}</button>`).join("")}
+        <button type="button" class="adm-chip-select" data-select>Select</button>
       </div>
-      <div class="adm-list" id="items"></div>`;
-    $("#add").addEventListener("click", () => showEdit(null));
+      <div class="adm-list" id="items"></div>
+      <div id="bulk"></div>`;
     $("#q").addEventListener("input", (e) => { listQuery = e.target.value; drawItems(); });
     $("#filters").addEventListener("click", (e) => {
       const b = e.target.closest("[data-filter]");
       if (!b) return;
       listFilter = b.dataset.filter;
-      $("#filters").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      $("#filters").querySelectorAll("[data-filter]").forEach((x) => x.classList.toggle("on", x === b));
       drawItems();
     });
     $("#items").addEventListener("click", (e) => {
       const b = e.target.closest("[data-id]");
-      if (b) showEdit(designs.find((d) => d.id === b.dataset.id));
+      if (!b) return;
+      if (!selecting) return showEdit(designs.find((d) => d.id === b.dataset.id));
+      selected.has(b.dataset.id) ? selected.delete(b.dataset.id) : selected.add(b.dataset.id);
+      b.classList.toggle("picked", selected.has(b.dataset.id));
+      drawBulk();
     });
     drawItems(highlight);
   }
@@ -185,21 +215,27 @@
     return ["ok", "In stock"];
   }
 
-  function drawItems(highlight) {
+  function listShown() {
     const q = listQuery.trim().toLowerCase();
-    const shown = designs.filter((d) => {
+    return designs.filter((d) => {
       if (q && ![d.name, d.id, d.category].join(" ").toLowerCase().includes(q)) return false;
       return listFilter === "all" || statusOf(d)[0] === listFilter;
     });
+  }
+
+  function drawItems(highlight) {
+    const shown = listShown();
+    $("#items").classList.toggle("selecting", selecting);
     $("#items").innerHTML = shown.length ? shown.map((d) => {
       const [st, label] = statusOf(d);
-      const img = d.colours.find((c) => c.images.length)?.images[0]?.url;
+      const img = imgOf(d);
       return `
-        <button type="button" class="adm-item ${d.id === highlight ? "flash" : ""}" data-id="${esc(d.id)}">
+        <button type="button" class="adm-item ${d.id === highlight ? "flash" : ""} ${selected.has(d.id) ? "picked" : ""}" data-id="${esc(d.id)}">
+          <span class="adm-check" aria-hidden="true"></span>
           <span class="adm-thumb">${img ? `<img src="${esc(thumbOf(img))}" alt="" loading="lazy">` : ""}</span>
           <span class="adm-item-main">
             <strong>${esc(d.name || "(no name)")}</strong>
-            <small>${esc(d.id)} · ${money(d.price)} · ${esc(d.category)}</small>
+            <small>${esc(d.id)} · ${money(d.price)} · ${esc(d.category)}${d.tag ? ` · ${d.tag === "new" ? "New" : "Bestseller"}` : ""}</small>
             <span class="adm-dots">${d.colours.filter((c) => c.color).slice(0, 8).map((c) =>
               `<i style="background:${dot(c.color, c.color_code)}" title="${esc(c.color)}"></i>`).join("")}
               <small>${d.colours.length} colour${d.colours.length === 1 ? "" : "s"}</small></span>
@@ -208,6 +244,274 @@
         </button>`;
     }).join("") : `<p class="muted center">No products here.</p>`;
   }
+
+  /* ---------- bulk changes for the selected products ---------- */
+  // New price for a product (and its colours' own prices) with the sale settings
+  function priceChange(d) {
+    const pct = Math.max(0, Math.min(90, Number(bulk.pct) || 0)) / 100;
+    const f = bulk.dir === "up" ? 1 + pct : 1 - pct;
+    const round = (v) => (bulk.end9 ? Math.max(9, Math.round((v * f) / 10) * 10 - 1) : Math.max(1, Math.round(v * f)));
+    const price = round(Number(d.price));
+    let mrp = Number(d.mrp) || 0;
+    if (bulk.dir === "down" && bulk.keepMrp) mrp = Math.max(mrp, Number(d.price));
+    if (mrp <= price) mrp = 0;
+    return { price, mrp: mrp ? String(mrp) : "", colours: d.colours.map((c) => (Number(c.price) > 0 ? String(round(Number(c.price))) : c.price)) };
+  }
+
+  function bulkPreview() {
+    const picked = designs.filter((d) => selected.has(d.id));
+    if (bulk.action !== "price" || !picked.length) return "";
+    return picked.slice(0, 5).map((d) => {
+      const c = priceChange(d);
+      return `<li><span>${esc(d.id)} ${esc(d.name)}</span><b>${money(d.price)} → ${money(c.price)}</b>${c.mrp ? `<s>${money(c.mrp)}</s>` : ""}</li>`;
+    }).join("") + (picked.length > 5 ? `<li><span>…and ${picked.length - 5} more</span></li>` : "");
+  }
+
+  function drawBulk() {
+    const box = $("#bulk");
+    document.body.classList.toggle("adm-bulking", selecting);
+    $("[data-select]").textContent = selecting ? "Done" : "Select";
+    $("[data-select]").classList.toggle("on", selecting);
+    if (!selecting) { box.innerHTML = ""; return; }
+    const n = selected.size;
+    const a = bulk.action;
+    const cats = [...new Set([...C.categories, ...designs.map((d) => d.category)].filter(Boolean))];
+    if (a === "category" && !bulk.category) bulk.category = cats[0] || "";
+    box.innerHTML = `
+      <div class="adm-bulk">
+        <div class="adm-bulk-top">
+          <strong>${n} selected</strong>
+          <button type="button" class="adm-linkbtn" data-bulk="all">Select all shown</button>
+          ${n ? `<button type="button" class="adm-linkbtn" data-bulk="none">Clear</button>` : ""}
+        </div>
+        <select class="field" data-bulkf="action" aria-label="Change">
+          <option value="">Choose a change…</option>
+          ${BULK.map(([k, l]) => `<option value="${k}" ${k === a ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+        ${a === "category" ? `<select class="field" data-bulkf="category" aria-label="Category">${cats.map((c) => `<option ${c === bulk.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : ""}
+        ${a === "price" ? `
+          <div class="adm-inline">
+            <select class="field" data-bulkf="dir" aria-label="Lower or raise"><option value="down" ${bulk.dir === "down" ? "selected" : ""}>Lower by</option><option value="up" ${bulk.dir === "up" ? "selected" : ""}>Raise by</option></select>
+            <input class="field" data-bulkf="pct" type="number" inputmode="numeric" min="1" max="90" value="${esc(bulk.pct)}" aria-label="Percent"><span>%</span>
+          </div>
+          <label class="adm-toggle"><input type="checkbox" data-bulkf="end9" ${bulk.end9 ? "checked" : ""}> End prices in 9 (like ₹1,709)</label>
+          ${bulk.dir === "down" ? `<label class="adm-toggle"><input type="checkbox" data-bulkf="keepMrp" ${bulk.keepMrp ? "checked" : ""}> Show the old price crossed out</label>` : ""}
+          <ul class="adm-preview" id="bulk-preview">${bulkPreview()}</ul>` : ""}
+        <button type="button" class="btn btn-block" data-bulk="apply" ${n && a ? "" : "disabled"}>${a ? `Apply to ${n} product${n === 1 ? "" : "s"}` : "Choose a change"}</button>
+      </div>`;
+  }
+
+  async function applyBulk(btn) {
+    const picked = designs.filter((d) => selected.has(d.id));
+    const a = bulk.action;
+    if (a === "price" && !(Number(bulk.pct) >= 1 && Number(bulk.pct) <= 90)) return toast("Enter a percentage from 1 to 90.");
+    const broken = picked.find((d) => !d.name.trim() || !(Number(d.price) > 0));
+    if (broken) return toast(`${broken.id} has no name or price. Open it and fix it first.`);
+    if (!confirm(`${BULK.find(([k]) => k === a)[1]}${a === "category" ? ` (${bulk.category})` : a === "price" ? ` (${bulk.dir === "down" ? "−" : "+"}${bulk.pct}%)` : ""} for ${picked.length} product${picked.length === 1 ? "" : "s"}?`)) return;
+    const changed = picked.map((src) => {
+      const d = JSON.parse(JSON.stringify(src));
+      if (a === "hide") d.hidden = true;
+      if (a === "show") d.hidden = false;
+      if (a.startsWith("tag-")) d.tag = a === "tag-none" ? "" : a.slice(4);
+      if (a === "category") d.category = bulk.category;
+      if (a === "price") {
+        const c = priceChange(src);
+        d.price = String(c.price);
+        d.mrp = c.mrp;
+        d.colours.forEach((col, i) => { col.price = c.colours[i]; });
+      }
+      return d;
+    });
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    const since = nav;
+    try {
+      await call("saveMany", { designs: changed.map(designPayload) });
+      bulk.action = "";
+      toast(`Updated ${changed.length} product${changed.length === 1 ? "" : "s"} ✓ The website updates within about 5 minutes.`);
+      showList(undefined, true, since);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = `Apply to ${picked.length} product${picked.length === 1 ? "" : "s"}`;
+      toast(e.message);
+    }
+  }
+
+  /* ---------- Quick stock: tap sizes sold out / back in stock, then save once ---------- */
+  function qsCard(d) {
+    const v = stockDraft.get(d.id) || d;
+    const img = imgOf(d);
+    return `
+      <article class="adm-qs ${stockDraft.has(d.id) ? "changed" : ""}" data-qid="${esc(d.id)}">
+        <header>
+          <span class="adm-thumb sm">${img ? `<img src="${esc(thumbOf(img))}" alt="" loading="lazy">` : ""}</span>
+          <span><strong>${esc(d.name)}</strong><small>${esc(d.id)} · ${money(d.price)}</small></span>
+          ${stockDraft.has(d.id) ? `<em>Changed</em>` : ""}
+        </header>
+        ${v.colours.map((c, i) => `
+          <div class="adm-qs-colour" data-ci="${i}">
+            <span class="adm-qs-name"><i style="background:${dot(c.color, c.color_code)}"></i>${esc(c.color || "One colour")}</span>
+            <div class="adm-sizes adm-stock">
+              ${v.sizes.map((s) => `<button type="button" data-qs="size" data-size="${esc(s)}" class="${!c.in_stock || c.sold_out.includes(s) ? "off" : "on"}" ${c.in_stock ? "" : "disabled"}>${esc(s)}</button>`).join("")}
+              <button type="button" data-qs="all" class="adm-qs-all ${c.in_stock ? "" : "on"}">${c.in_stock ? "Whole colour sold out" : "Sold out · tap to restock"}</button>
+            </div>
+          </div>`).join("")}
+      </article>`;
+  }
+
+  function stockShown() {
+    const q = stockQuery.trim().toLowerCase();
+    return designs.filter((d) => !d.hidden && (!q || [d.name, d.id, d.category].join(" ").toLowerCase().includes(q)));
+  }
+
+  function stockSaveLabel() {
+    const n = stockDraft.size;
+    return n ? `Save stock (${n} product${n === 1 ? "" : "s"} changed)` : "Tap sizes to change stock";
+  }
+
+  function drawStock() {
+    const shown = stockShown();
+    $("#pv").innerHTML = `
+      <p class="muted small">Tap a size to cross it out (sold out) or bring it back. Hidden products aren't listed. Nothing changes on the website until you tap Save.</p>
+      <input class="field adm-search" id="sq" type="search" placeholder="Search by name or code" value="${esc(stockQuery)}">
+      <div class="adm-qs-list" id="qs">${shown.length ? shown.map(qsCard).join("") : `<p class="muted center">No products here.</p>`}</div>
+      <div class="adm-save"><button type="button" class="btn btn-block" id="save-stock" ${stockDraft.size ? "" : "disabled"}>${stockSaveLabel()}</button></div>`;
+  }
+
+  // same sizes sold out and same in-stock flags as saved → not a change
+  const stockKey = (d) => JSON.stringify(d.colours.map((c) => [c.in_stock, d.sizes.filter((s) => c.sold_out.includes(s))]));
+
+  function toggleStock(card, b) {
+    const d = designs.find((x) => x.id === card.dataset.qid);
+    const v = stockDraft.get(d.id) || JSON.parse(JSON.stringify(d));
+    const c = v.colours[Number(b.closest("[data-ci]").dataset.ci)];
+    if (b.dataset.qs === "all") c.in_stock = !c.in_stock;
+    else c.sold_out = c.sold_out.includes(b.dataset.size) ? c.sold_out.filter((s) => s !== b.dataset.size) : [...c.sold_out, b.dataset.size];
+    if (stockKey(v) === stockKey(d)) stockDraft.delete(d.id); else stockDraft.set(d.id, v);
+    dirty = stockDraft.size > 0;
+    card.outerHTML = qsCard(d);
+    $("#save-stock").disabled = !stockDraft.size;
+    $("#save-stock").textContent = stockSaveLabel();
+  }
+
+  async function saveStock(btn) {
+    const list = [...stockDraft.values()];
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    const since = nav;
+    try {
+      await call("saveMany", { designs: list.map(designPayload) });
+      toast(`Stock saved for ${list.length} product${list.length === 1 ? "" : "s"} ✓ The website updates within about 5 minutes.`);
+      showList(undefined, true, since);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = stockSaveLabel();
+      toast(e.message);
+    }
+  }
+
+  /* ---------- Website order: which products the shop shows first ---------- */
+  // Same rule as the website: products without a place (added later) first, newest first; then 1, 2, 3…
+  // Before any order is saved, the sheet's order.
+  function webOrderIds() {
+    const shown = designs.filter((d) => !d.hidden);
+    const placed = shown.some((d) => d.position);
+    const at = new Map(designs.map((d, i) => [d.id, i]));
+    return shown.slice().sort((a, b) => {
+      if (!placed) return at.get(a.id) - at.get(b.id);
+      return (a.position ? 1 : 0) - (b.position ? 1 : 0) || (a.position && b.position ? a.position - b.position : at.get(b.id) - at.get(a.id));
+    }).map((d) => d.id);
+  }
+
+  function drawWebOrder(moved) {
+    if (!orderDraft) orderDraft = webOrderIds();
+    const y = window.scrollY;
+    const placed = designs.some((d) => d.position);
+    $("#pv").innerHTML = `
+      <p class="muted small">The order customers see in the shop (Recommended) and in New arrivals and Bestsellers on the home page. Sold-out products still go to the end. Products you add later show at the top until you arrange them.</p>
+      <ol class="adm-worder">${orderDraft.map((id, i) => {
+        const d = designs.find((x) => x.id === id);
+        const img = imgOf(d);
+        return `
+        <li data-wo="${esc(id)}" class="${id === moved ? "flash" : ""}">
+          <b>${i + 1}</b>
+          <span class="adm-thumb sm">${img ? `<img src="${esc(thumbOf(img))}" alt="" loading="lazy">` : ""}</span>
+          <span class="adm-wo-name"><strong>${esc(d.name)}</strong><small>${esc(d.id)}${placed && !d.position ? " · new" : ""}${statusOf(d)[0] === "out" ? " · sold out" : ""}</small></span>
+          <button type="button" class="adm-icon" data-wact="top" aria-label="Move to the top" ${i ? "" : "disabled"}>Top</button>
+          <button type="button" class="adm-icon" data-wact="up" aria-label="Move up" ${i ? "" : "disabled"}>↑</button>
+          <button type="button" class="adm-icon" data-wact="down" aria-label="Move down" ${i < orderDraft.length - 1 ? "" : "disabled"}>↓</button>
+        </li>`;
+      }).join("")}</ol>
+      <div class="adm-save"><button type="button" class="btn btn-block" id="save-worder" ${dirty ? "" : "disabled"}>${dirty ? "Save website order" : "Move products to change the order"}</button></div>`;
+    window.scrollTo(0, y);
+  }
+
+  async function saveWebOrder(btn) {
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    const since = nav;
+    try {
+      await call("setOrder", { ids: orderDraft });
+      toast("Website order saved ✓ The shop updates within about 5 minutes.");
+      showList(undefined, true, since);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "Save website order";
+      toast(e.message);
+    }
+  }
+
+  app.addEventListener("click", (e) => {
+    const t = e.target;
+    const view = t.closest("[data-pview]");
+    if (view) {
+      if (view.dataset.pview === productsView) return;
+      if (dirty && !confirm("Leave without saving your changes?")) return;
+      productsView = view.dataset.pview;
+      return showList();
+    }
+    if (t.closest("[data-select]")) {
+      selecting = !selecting;
+      if (!selecting) selected.clear();
+      drawItems();
+      return drawBulk();
+    }
+    const bk = t.closest("[data-bulk]");
+    if (bk) {
+      if (bk.dataset.bulk === "all") listShown().forEach((d) => selected.add(d.id));
+      if (bk.dataset.bulk === "none") selected.clear();
+      if (bk.dataset.bulk === "apply") return applyBulk(bk);
+      drawItems();
+      return drawBulk();
+    }
+    const qs = t.closest("[data-qs]");
+    if (qs && !qs.disabled) return toggleStock(qs.closest("[data-qid]"), qs);
+    if (t.closest("#save-stock")) return saveStock(t.closest("#save-stock"));
+    const wa = t.closest("[data-wact]");
+    if (wa && !wa.disabled) {
+      const id = wa.closest("[data-wo]").dataset.wo;
+      const i = orderDraft.indexOf(id);
+      orderDraft.splice(i, 1);
+      orderDraft.splice(wa.dataset.wact === "top" ? 0 : wa.dataset.wact === "up" ? i - 1 : i + 1, 0, id);
+      dirty = true;
+      return drawWebOrder(id);
+    }
+    if (t.closest("#save-worder")) return saveWebOrder(t.closest("#save-worder"));
+  });
+
+  app.addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.id === "sq") { stockQuery = t.value; $("#qs").innerHTML = stockShown().map(qsCard).join("") || `<p class="muted center">No products here.</p>`; }
+    if (t.dataset.bulkf === "pct") { bulk.pct = t.value; $("#bulk-preview").innerHTML = bulkPreview(); }
+  });
+
+  app.addEventListener("change", (e) => {
+    const t = e.target;
+    const f = t.dataset.bulkf;
+    if (!f || f === "pct") return;
+    bulk[f] = t.type === "checkbox" ? t.checked : t.value;
+    drawBulk();
+  });
 
   /* ---------- add / edit a product ---------- */
   const blankColour = () => ({ row: null, color: "", color_code: "", images: [], sold_out: [], in_stock: true, price: "" });
@@ -240,7 +544,8 @@
     app.innerHTML = `
       <div class="adm-head">
         <button type="button" class="adm-back" data-act="back">← Products</button>
-        ${d.id ? `<a class="adm-view" href="p/${encodeURIComponent(d.id)}" target="_blank" rel="noopener">View on website ↗</a>` : ""}
+        ${d.id ? `<span class="adm-head-tools"><button type="button" class="adm-icon" data-act="duplicate">⧉ Duplicate</button>
+          <a class="adm-view" href="p/${encodeURIComponent(d.id)}" target="_blank" rel="noopener">View on website ↗</a></span>` : ""}
       </div>
       <h1 class="adm-h1">${d.id ? `${esc(d.name)} <small>${esc(d.id)}</small>` : "New product"}</h1>
       ${d.split ? `<p class="adm-note">This product had several colours in one sheet row. When you save, each colour gets its own row, so you can give each colour its own photos.</p>` : ""}
@@ -386,6 +691,15 @@
     }
     if (act === "save") return save();
     if (act === "delete") return remove();
+    if (act === "duplicate") {
+      if (dirty && !confirm("Your changes to this product aren't saved. Duplicate it anyway?")) return;
+      // a new design like this one: same details, sizes and price; its own colours and photos
+      editing = { ...JSON.parse(JSON.stringify(d)), id: "", tag: "new", featured: false, hidden: false, split: false, position: 0, colours: [blankColour()] };
+      dirty = true;
+      renderEdit();
+      window.scrollTo(0, 0);
+      return toast("Copied ✓ Change the name, then add the colours and photos.");
+    }
     if (act === "size") {
       const s = b.dataset.size;
       d.sizes = d.sizes.includes(s) ? d.sizes.filter((x) => x !== s) : window.sortSizes([...d.sizes, s]);
@@ -495,11 +809,12 @@
     const btn = $("#save");
     btn.disabled = true;
     btn.textContent = "Saving…";
+    const since = nav;
     try {
       const j = await call("save", { design });
       dirty = false;
       toast(`Saved ${j.id} ✓ It shows on the website within about 5 minutes.`);
-      showList(j.id, true);
+      showList(j.id, true, since);
     } catch (e) {
       btn.disabled = false;
       btn.textContent = d.id ? "Save changes" : "Add product";
@@ -510,11 +825,12 @@
   async function remove() {
     const d = editing;
     if (!confirm(`Delete "${d.name}" (${d.id}) from the website and the sheet?\n\nThis can't be undone. To keep it for later, tick "Hide from website" instead.`)) return;
+    const since = nav;
     try {
       await call("delete", { id: d.id });
       dirty = false;
       toast(`Deleted ${d.id}`);
-      showList(undefined, true);
+      showList(undefined, true, since);
     } catch (e) {
       fail(e.message);
     }
@@ -526,7 +842,7 @@
      Loading everything, and the bottom tabs
      ========================================================= */
   // Reads products, reviews, settings and orders in one go. Returns false (and shows why) if it failed.
-  async function refresh() {
+  async function refresh(quiet = false) {
     try {
       const j = await call("load");
       designs = toDesigns(j.products.headers, j.products.rows);
@@ -538,6 +854,7 @@
       return true;
     } catch (e) {
       if (/PIN/i.test(e.message)) { showLogin(e.message); return false; }
+      if (quiet) { toast(e.message); return false; }
       setTabs(null);
       app.innerHTML = `<section class="adm-card"><p class="adm-error">${esc(e.message)}</p><button class="btn" id="retry">Try again</button></section>`;
       $("#retry").addEventListener("click", () => start());
@@ -550,21 +867,33 @@
     if (document.hidden || !auth.pin || !loadedAt || Date.now() - loadedAt < 5 * 60 * 1000 || dirty) return;
     const on = $("#tabs").hidden ? null : $("#tabs .on");
     const show = on && { home: showDashboard, products: () => showList(), orders: showOrders, reviews: showReviews }[on.dataset.tab];
-    if (show && (await refresh())) show();
+    if (show) reloadThen(show);
   });
 
   async function start() {
     $("#logout").hidden = false;
     setTabs(null);
+    const since = nav;
     app.innerHTML = `<p class="adm-loading">Loading your shop…</p>`;
-    if (await refresh()) showDashboard();
+    if ((await refresh()) && since === nav) showDashboard();
+  }
+
+  // Reads the sheets again, then shows a screen, unless the owner has opened another screen meanwhile
+  // (since = the screen number when the change started)
+  async function reloadThen(show, since = nav) {
+    const ok = await refresh(true);
+    if (!ok || since !== nav) return false;
+    show();
+    return true;
   }
 
   // active: "home" | "products" | "orders" | "reviews" | "settings", or null to hide the tabs
   function setTabs(active) {
+    nav++;
     const tabs = $("#tabs");
     tabs.hidden = !active;
     document.body.classList.toggle("adm-has-tabs", !!active);
+    document.body.classList.remove("adm-bulking"); // the bulk-change panel belongs to the product list only
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === active));
     const waiting = reviews.list.filter((r) => !r.show).length;
     $("#tab-badge").textContent = waiting;
@@ -750,14 +1079,14 @@
     const r = reviews.list.find((x) => x.row === row);
     if (!r) return;
     app.querySelectorAll(`[data-row="${row}"] button`).forEach((b) => (b.disabled = true));
+    const since = nav;
     try {
       await call("review", { row, stamp: r.stamp, ...change });
       toast(done);
-      if (await refresh()) showReviews();
     } catch (e) {
       toast(e.message);
-      if (await refresh()) showReviews();
     }
+    reloadThen(showReviews, since);
   }
 
   app.addEventListener("click", (e) => {
@@ -1041,11 +1370,12 @@
     const btn = $("#save-settings");
     btn.disabled = true;
     btn.textContent = "Saving…";
+    const since = nav;
     try {
       await call("saveSettings", { values });
       dirty = false;
       toast("Settings saved ✓ The website updates within about 5 minutes.");
-      if (await refresh()) showSettings();
+      reloadThen(showSettings, since);
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "Save settings";
@@ -1612,11 +1942,13 @@
     const label = btn.textContent;
     busy.forEach((b) => (b.disabled = true));
     btn.textContent = "Saving…";
+    const since = nav;
     try {
       const j = await call("saveOrder", { order: payload, isNew: !o.row, updated: o.row ? o.updated : undefined });
       const s = toOrder(j.order.headers.map(keyOf), j.order.row, j.order.cells);
       orders.list = [s, ...orders.list.filter((x) => x.id !== s.id)].sort(byNewest);
       if (j.url) orders.url = j.url;
+      if (since !== nav) { toast(`Saved order ${s.id} ✓`); return true; } // the owner already moved on
       dirty = false;
       order = { ...s, shipAuto: false, paidNow: false, pick: {}, paste: "", pasteNote: "" };
       if (!quiet) {
@@ -1659,10 +1991,10 @@
     if (!picked.length) return toast("OK, stock unchanged.");
     toast("Updating website stock…");
     const id = order.id;
+    const since = nav;
     try {
       await markSoldOut(picked);
-      if (await refresh()) {
-        showOrder(orders.list.find((x) => x.id === id));
+      if (await reloadThen(() => showOrder(orders.list.find((x) => x.id === id)), since)) {
         toast("Website stock updated ✓ It shows within about 5 minutes.");
       }
     } catch (e) {
@@ -1674,20 +2006,22 @@
   async function reloadOrder() {
     const id = order.id;
     dirty = false;
-    if (!(await refresh())) return;
-    const o = orders.list.find((x) => x.id === id);
-    if (o) { showOrder(o); toast("Reloaded. Make your changes again."); } else showOrders();
+    await reloadThen(() => {
+      const o = orders.list.find((x) => x.id === id);
+      if (o) { showOrder(o); toast("Reloaded. Make your changes again."); } else showOrders();
+    });
   }
 
   async function removeOrder() {
     const o = order;
     if (!confirm(`Delete order ${o.id} (${o.name}) for good?\n\nTo keep a record, cancel it instead.`)) return;
+    const since = nav;
     try {
       await call("deleteOrder", { id: o.id, updated: o.updated });
       orders.list = orders.list.filter((x) => x.id !== o.id);
       dirty = false;
       toast(`Deleted order ${o.id}`);
-      showOrders();
+      if (since === nav) showOrders();
     } catch (e) {
       const box = $("#err");
       box.textContent = e.message;

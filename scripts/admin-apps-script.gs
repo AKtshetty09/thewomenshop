@@ -57,6 +57,8 @@ function doPost(e) {
       if (req.action === "saveSettings") return reply(Object.assign({ ok: true }, saveSettings(req.values)));
       if (req.action === "review") return reply(Object.assign({ ok: true }, updateReview(req)));
       if (req.action === "save") return reply(Object.assign({ ok: true }, saveDesign(req.design)));
+      if (req.action === "saveMany") return reply(Object.assign({ ok: true }, saveMany(req.designs)));
+      if (req.action === "setOrder") return reply(Object.assign({ ok: true }, setOrder(req.ids)));
       if (req.action === "delete") return reply(Object.assign({ ok: true }, deleteDesign(req.id)));
       if (req.action === "saveOrder") return reply(Object.assign({ ok: true }, saveOrder(req)));
       if (req.action === "deleteOrder") return reply(Object.assign({ ok: true }, deleteOrder(req)));
@@ -167,6 +169,8 @@ function saveDesign(d) {
   const imageCols = headers.map((h, i) => (h.startsWith("image") ? i : -1)).filter((i) => i >= 0);
   const blankCols = headers.map((h, i) => (!h ? i : -1)).filter((i) => i >= 0);
   const list = (a) => (a || []).map((x) => String(x).trim()).filter(Boolean).join(", ");
+  // the product's place in "Website order" stays on its first row, whichever colour is first
+  const position = map.position ? current.map((r) => values[r - 1][map.position - 1]).filter((v) => String(v).trim() !== "")[0] || "" : "";
 
   d.colours.forEach((c, n) => {
     const first = n === 0;
@@ -185,6 +189,7 @@ function saveDesign(d) {
     set("sold_out_sizes", list(c.sold_out));
     set("in_stock", first && d.hidden ? "hide" : c.in_stock === false ? "no" : "yes");
     set("price", first ? Number(d.price) : Number(c.price) > 0 ? Number(c.price) : "");
+    if (map.position) row[map.position - 1] = first ? position : "";
     if (first) {
       set("sizes", list(d.sizes));
       DESIGN_FIELDS.filter((k) => k !== "sizes").forEach((k) => {
@@ -409,4 +414,37 @@ function deleteOrder(req) {
   checkUpdated(f, req.updated);
   f.sh.deleteRow(f.row);
   return { deleted: id };
+}
+
+/* ---------- several products at once, and the website order ---------- */
+// Quick stock and bulk changes. Bottom products first, so rows added or removed for one product
+// never move the rows of the next one.
+function saveMany(list) {
+  if (!Array.isArray(list) || !list.length) throw new Error("Nothing to save");
+  const lowest = (d) => Math.max.apply(null, [0].concat((d.colours || []).map((c) => Number(c.row) || 0)));
+  return { ids: list.slice().sort((a, b) => lowest(b) - lowest(a)).map((d) => saveDesign(d).id) };
+}
+
+// ids = product codes in the order the shop shows them: writes 1, 2, 3… in the "position" column
+// (on each product's first row); every other product's position is cleared
+function setOrder(ids) {
+  if (!Array.isArray(ids)) throw new Error("Nothing to save");
+  const sh = productSheet();
+  const { map } = ensureColumns(sh, ["id", "name", "position"]);
+  const last = sh.getLastRow();
+  if (last < 2) return { ordered: 0 };
+  const rows = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  const first = {};
+  rows.forEach((r, i) => {
+    const id = String(r[map.id - 1]).trim();
+    if (!id) return;
+    if (first[id] === undefined || (!String(rows[first[id]][map.name - 1]).trim() && String(r[map.name - 1]).trim())) first[id] = i;
+  });
+  const out = rows.map(() => [""]);
+  ids.forEach((id, n) => {
+    const i = first[String(id).trim()];
+    if (i !== undefined) out[i] = [n + 1];
+  });
+  sh.getRange(2, map.position, last - 1, 1).setValues(out);
+  return { ordered: ids.length };
 }

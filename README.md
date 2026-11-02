@@ -28,7 +28,8 @@ links show the product photo. GitHub Pages source must be set to **GitHub Action
 
 Shop Admin: twshop.in/admin lets the owner add/edit products, colours, photos and stock from a phone,
 approve customer reviews, change the Settings tab (home banners, top bar, menu, shipping), and
-track orders. Orders are kept in a separate private spreadsheet the script creates in the owner's
+track orders. The Products tab also has Quick stock, bulk changes (Select) and Website order:
+the shop's Recommended order comes from the sheet's `position` column. Orders are kept in a separate private spreadsheet the script creates in the owner's
 Drive ("The Women Shop - Orders (private)"), never in the published product sheet.
 It calls a Google Apps Script attached to the product sheet: `scripts/admin-apps-script.gs`
 (deployed as a Web app; protected by the PIN set at the top of that script). Photos go to the
