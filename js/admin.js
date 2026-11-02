@@ -20,7 +20,10 @@
   let auth = JSON.parse(localStorage.getItem(AUTH) || "null") || {};
   let designs = [];     // products from the sheet
   let editing = null;   // the product on the edit screen
-  let dirty = false;    // unsaved changes on the edit screen
+  let dirty = false;    // unsaved changes on the edit or settings screen
+  let reviews = { list: [], error: "" }; // customer reviews
+  let settingsMap = {};  // Settings tab: { key: value }
+  let cfg = null;        // the shop settings being edited
 
   function toast(msg) {
     const t = $("#adm-toast");
@@ -49,6 +52,7 @@
   /* ---------- log in ---------- */
   function showLogin(msg = "") {
     $("#logout").hidden = true;
+    setTabs(null);
     app.innerHTML = `
       <section class="adm-card adm-login">
         <h1>Shop Admin</h1>
@@ -74,7 +78,7 @@
       try {
         await call("ping");
         localStorage.setItem(AUTH, JSON.stringify(auth));
-        showList();
+        start();
       } catch (err) {
         auth = { url };
         showLogin(err.message);
@@ -136,20 +140,12 @@
 
   /* ---------- product list ---------- */
   let listQuery = "", listFilter = "all";
-  async function showList(highlight) {
-    $("#logout").hidden = false;
+  async function showList(highlight, reload = false) {
+    if (reload && !(await refresh())) return;
+    setTabs("products");
     editing = null;
+    cfg = null;
     dirty = false;
-    app.innerHTML = `<p class="adm-loading">Loading products…</p>`;
-    try {
-      const j = await call("list");
-      designs = toDesigns(j.headers, j.rows);
-    } catch (e) {
-      if (/PIN/i.test(e.message)) return showLogin(e.message);
-      app.innerHTML = `<section class="adm-card"><p class="adm-error">${esc(e.message)}</p><button class="btn" id="retry">Try again</button></section>`;
-      $("#retry").addEventListener("click", () => showList());
-      return;
-    }
     app.innerHTML = `
       <div class="adm-head">
         <h1>Products <small>${designs.length}</small></h1>
@@ -213,6 +209,8 @@
   const blankColour = () => ({ row: null, color: "", color_code: "", images: [], sold_out: [], in_stock: true, price: "" });
 
   function showEdit(d) {
+    setTabs(null);
+    cfg = null;
     editing = d ? JSON.parse(JSON.stringify(d)) : {
       id: "", name: "", category: C.categories[0] || "", price: "", mrp: "", sizes: ["S", "M", "L", "XL", "XXL"],
       description: "", fabric: "", lining: "", length: "", sleeve_type: "", dupatta: "", bottom: "", other_details: "",
@@ -409,12 +407,12 @@
   });
 
   /* ---------- photos: shrink on the phone, then upload to Google Drive ---------- */
-  function toJpeg(file) {
+  function toJpeg(file, max = 1600) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
-        const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)); // max 1600px
+        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)); // longest side at most max px
         const cv = document.createElement("canvas");
         cv.width = Math.round(img.naturalWidth * scale);
         cv.height = Math.round(img.naturalHeight * scale);
@@ -493,7 +491,7 @@
       const j = await call("save", { design });
       dirty = false;
       toast(`Saved ${j.id} ✓ It shows on the website within about 5 minutes.`);
-      showList(j.id);
+      showList(j.id, true);
     } catch (e) {
       btn.disabled = false;
       btn.textContent = d.id ? "Save changes" : "Add product";
@@ -508,7 +506,7 @@
       await call("delete", { id: d.id });
       dirty = false;
       toast(`Deleted ${d.id}`);
-      showList();
+      showList(undefined, true);
     } catch (e) {
       fail(e.message);
     }
@@ -516,5 +514,498 @@
 
   window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
-  if (auth.url && auth.pin) showList(); else showLogin();
+  /* =========================================================
+     Loading everything, and the bottom tabs
+     ========================================================= */
+  // Reads products, reviews and settings in one go. Returns false (and shows why) if it failed.
+  async function refresh() {
+    try {
+      const j = await call("load");
+      designs = toDesigns(j.products.headers, j.products.rows);
+      reviews = toReviews(j.reviews);
+      settingsMap = {};
+      (j.settings.rows || []).forEach((r) => { settingsMap[keyOf(r.label)] = r.value; });
+      return true;
+    } catch (e) {
+      if (/PIN/i.test(e.message)) { showLogin(e.message); return false; }
+      setTabs(null);
+      app.innerHTML = `<section class="adm-card"><p class="adm-error">${esc(e.message)}</p><button class="btn" id="retry">Try again</button></section>`;
+      $("#retry").addEventListener("click", () => start());
+      return false;
+    }
+  }
+
+  async function start() {
+    $("#logout").hidden = false;
+    setTabs(null);
+    app.innerHTML = `<p class="adm-loading">Loading your shop…</p>`;
+    if (await refresh()) showDashboard();
+  }
+
+  // active: "home" | "products" | "reviews" | "settings", or null to hide the tabs
+  function setTabs(active) {
+    const tabs = $("#tabs");
+    tabs.hidden = !active;
+    document.body.classList.toggle("adm-has-tabs", !!active);
+    tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === active));
+    const waiting = reviews.list.filter((r) => !r.show).length;
+    $("#tab-badge").textContent = waiting;
+    $("#tab-badge").hidden = !waiting;
+  }
+
+  $("#tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tab]");
+    if (!b) return;
+    if (dirty && !confirm("Leave without saving your changes?")) return;
+    dirty = false;
+    ({ home: showDashboard, products: () => showList(), reviews: showReviews, settings: showSettings })[b.dataset.tab]();
+    window.scrollTo(0, 0);
+  });
+
+  /* =========================================================
+     Dashboard
+     ========================================================= */
+  const isSample = (url) => /images\.unsplash\.com/.test(url || "");
+
+  function showDashboard() {
+    setTabs("home");
+    editing = null;
+    cfg = null;
+    const shown = designs.filter((d) => !d.hidden);
+    const colours = shown.flatMap((d) => d.colours.map((c) => ({ d, c })));
+    const soldOut = colours.filter(({ d, c }) => !c.in_stock || (d.sizes.length && c.sold_out.length >= d.sizes.length));
+    const noPhotos = colours.filter(({ c }) => !c.images.length);
+    const waiting = reviews.list.filter((r) => !r.show);
+
+    // things to fix, most important first
+    const todo = [];
+    if (reviews.error) todo.push({ kind: "bad", text: `Reviews couldn't load: ${reviews.error}`, go: "reviews" });
+    if (waiting.length) todo.push({ kind: "info", text: `${waiting.length} customer review${waiting.length === 1 ? " is" : "s are"} waiting for approval`, go: "reviews" });
+    noPhotos.forEach(({ d, c }) => todo.push({ kind: "warn", text: `${d.id} · ${c.color || d.name} has no photos of its own`, id: d.id }));
+    shown.filter((d) => d.colours.some((c) => c.images.some((im) => isSample(im.url))))
+      .forEach((d) => todo.push({ kind: "warn", text: `${d.id} · ${d.name} still uses a sample photo`, id: d.id }));
+    bannerList().forEach((b, i) => { if (isSample(b.image)) todo.push({ kind: "warn", text: `Home banner ${i + 1} still uses a sample photo`, go: "settings" }); });
+    shown.filter((d) => !d.colours.some((c) => c.in_stock && (!d.sizes.length || c.sold_out.length < d.sizes.length)))
+      .forEach((d) => todo.push({ kind: "info", text: `${d.id} · ${d.name} is completely sold out`, id: d.id }));
+    shown.filter((d) => !d.description || !d.fabric)
+      .forEach((d) => todo.push({ kind: "tip", text: `${d.id} · add ${!d.description ? "a description" : "the fabric"} (helps customers and Google)`, id: d.id }));
+
+    const LIMIT = 8;
+    const stat = (n, label, go, kind = "") => `<button type="button" class="adm-stat ${kind}" data-go="${go}"><strong>${n}</strong><span>${label}</span></button>`;
+    app.innerHTML = `
+      <h1 class="adm-h1">Hello! 👋</h1>
+      <p class="muted">Here's your shop today.</p>
+      <div class="adm-stats">
+        ${stat(shown.length, "products on the website", "products")}
+        ${stat(waiting.length, "reviews waiting", "reviews", waiting.length ? "hot" : "")}
+        ${stat(soldOut.length, "colours sold out", "products", soldOut.length ? "warn" : "")}
+        ${stat(noPhotos.length, "colours without photos", "products", noPhotos.length ? "warn" : "")}
+        ${stat(designs.length - shown.length, "hidden drafts", "products")}
+      </div>
+
+      <section class="adm-card">
+        <h2>Needs attention ${todo.length ? `<small>${todo.length}</small>` : ""}</h2>
+        ${todo.length ? `<ul class="adm-todo">${todo.slice(0, LIMIT).map((t) => `
+          <li><button type="button" class="${t.kind}" ${t.id ? `data-open="${esc(t.id)}"` : `data-go="${t.go}"`}>${esc(t.text)} <span>›</span></button></li>`).join("")}</ul>
+          ${todo.length > LIMIT ? `<p class="muted small">…and ${todo.length - LIMIT} more. Fix these first.</p>` : ""}`
+        : `<p class="adm-allgood">Everything looks good ✨</p>`}
+      </section>
+
+      <section class="adm-card">
+        <h2>Quick actions</h2>
+        <div class="adm-quick">
+          <button type="button" class="btn" data-quick="add">+ Add product</button>
+          <a class="btn btn-outline" href="paylink" target="_blank" rel="noopener">Payment link</a>
+          <a class="btn btn-outline" href="index.html" target="_blank" rel="noopener">View website</a>
+          <a class="btn btn-outline" href="https://cloud.umami.is" target="_blank" rel="noopener">Visitor stats</a>
+        </div>
+        <p class="muted small">Changes show on the website within about 5 minutes of saving.</p>
+      </section>`;
+  }
+
+  app.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    const open = e.target.closest("[data-open]");
+    const quick = e.target.closest("[data-quick]");
+    if (go) ({ products: () => showList(), reviews: showReviews, settings: showSettings })[go.dataset.go]();
+    if (open) showEdit(designs.find((d) => d.id === open.dataset.open));
+    if (quick && quick.dataset.quick === "add") showEdit(null);
+    if (go || open || quick) window.scrollTo(0, 0);
+  });
+
+  /* =========================================================
+     Reviews: approve / hide / delete / add the customer's photo
+     ========================================================= */
+  function toReviews(r) {
+    if (!r || r.error) return { list: [], error: (r && r.error) || "" };
+    const keys = r.headers.map(keyOf);
+    const out = r.rows.map(({ row, cells }) => {
+      const o = {};
+      keys.forEach((k, i) => { if (k && !(k in o)) o[k] = String(cells[i] ?? "").trim(); });
+      return {
+        row, stamp: o.timestamp || cells[0] || "", name: o.name || "", city: o.city || "",
+        rating: Math.min(5, Math.round(Number(o.rating) || 0)), text: o.review || o.reiew || "",
+        order: o.order_id || "", product: o.product || "", photo: o.photo || "",
+        show: /^(yes|y|true|1)$/i.test(o.show || "") ? "yes" : /^(no|n|false|0)$/i.test(o.show || "") ? "no" : ""
+      };
+    }).filter((x) => x.name || x.text);
+    return { list: out.reverse(), error: "" }; // newest first
+  }
+
+  let reviewFilter = "waiting";
+  function showReviews() {
+    setTabs("reviews");
+    editing = null;
+    cfg = null;
+    const counts = { waiting: 0, yes: 0, no: 0 };
+    reviews.list.forEach((r) => { counts[r.show || "waiting"]++; });
+    const shown = reviews.list.filter((r) => reviewFilter === "all" || (r.show || "waiting") === reviewFilter);
+    const stars = (n) => "★".repeat(n) + `<span class="off">${"★".repeat(5 - n)}</span>`;
+    const product = (id) => designs.find((d) => d.id === id);
+    app.innerHTML = `
+      <div class="adm-head"><h1>Reviews <small>${reviews.list.length}</small></h1></div>
+      ${reviews.error ? `<p class="adm-error">The reviews sheet couldn't be opened: ${esc(reviews.error)}</p>` : ""}
+      <p class="muted small">New reviews from the website wait here. <strong>Approve</strong> to show one on the website.</p>
+      <div class="adm-chips" id="rv-filters">
+        ${[["waiting", `Waiting (${counts.waiting})`], ["yes", `Approved (${counts.yes})`], ["no", `Hidden (${counts.no})`], ["all", "All"]].map(([k, l]) =>
+          `<button type="button" data-rf="${k}" class="${k === reviewFilter ? "on" : ""}">${l}</button>`).join("")}
+      </div>
+      <div class="adm-reviews">
+        ${shown.length ? shown.map((r) => {
+          const p = product(r.product);
+          const img = p && p.colours.find((c) => c.images.length)?.images[0]?.url;
+          return `
+          <article class="adm-review" data-row="${r.row}">
+            <div class="adm-review-top">
+              <span class="adm-stars">${stars(r.rating)}</span>
+              <span class="adm-status ${r.show === "yes" ? "ok" : r.show === "no" ? "hidden" : "some"}">${r.show === "yes" ? "On website" : r.show === "no" ? "Hidden" : "Waiting"}</span>
+            </div>
+            <blockquote>“${esc(r.text)}”</blockquote>
+            <p class="adm-review-by"><strong>${esc(r.name)}</strong>${r.city ? `, ${esc(r.city)}` : ""} <span class="muted">· ${esc(r.stamp)}</span></p>
+            <p class="adm-review-for">${p
+              ? `${img ? `<img src="${esc(thumbOf(img))}" alt="">` : ""}<span>About <strong>${esc(p.name)}</strong> (${esc(p.id)})</span>`
+              : `<span>${r.product ? `Product code ${esc(r.product)}` : "About the shop in general"}</span>`}
+              ${r.order ? `<span class="muted">Order ${esc(r.order)}</span>` : ""}</p>
+            <div class="adm-review-photo">
+              ${r.photo
+                ? `<img src="${esc(thumbOf(r.photo))}" alt="Customer photo"><button type="button" class="adm-icon" data-rv="nophoto">Remove photo</button>`
+                : `<label class="adm-icon">＋ Add customer's photo<input type="file" accept="image/*" data-rv="photo" hidden></label>`}
+            </div>
+            <div class="adm-review-actions">
+              ${r.show !== "yes" ? `<button type="button" class="btn" data-rv="yes">Approve</button>` : ""}
+              ${r.show !== "no" ? `<button type="button" class="btn btn-outline" data-rv="no">Hide</button>` : ""}
+              <button type="button" class="adm-link-danger" data-rv="delete">Delete</button>
+            </div>
+          </article>`;
+        }).join("") : `<p class="muted center">No reviews here.</p>`}
+      </div>`;
+  }
+
+  async function reviewAction(row, change, done) {
+    const r = reviews.list.find((x) => x.row === row);
+    if (!r) return;
+    app.querySelectorAll(`[data-row="${row}"] button`).forEach((b) => (b.disabled = true));
+    try {
+      await call("review", { row, stamp: r.stamp, ...change });
+      toast(done);
+      if (await refresh()) showReviews();
+    } catch (e) {
+      toast(e.message);
+      if (await refresh()) showReviews();
+    }
+  }
+
+  app.addEventListener("click", (e) => {
+    const f = e.target.closest("[data-rf]");
+    if (f) { reviewFilter = f.dataset.rf; return showReviews(); }
+    const b = e.target.closest("button[data-rv]");
+    if (!b) return;
+    const row = Number(b.closest("[data-row]").dataset.row);
+    const act = b.dataset.rv;
+    if (act === "yes") reviewAction(row, { show: "yes" }, "Approved ✓ It shows on the website within about 5 minutes.");
+    if (act === "no") reviewAction(row, { show: "no" }, "Hidden from the website");
+    if (act === "nophoto") reviewAction(row, { photo: "" }, "Photo removed");
+    if (act === "delete" && confirm("Delete this review for good?")) reviewAction(row, { remove: true }, "Review deleted");
+  });
+
+  app.addEventListener("change", async (e) => {
+    const input = e.target.closest('input[data-rv="photo"]');
+    if (!input || !input.files.length) return;
+    const row = Number(input.closest("[data-row]").dataset.row);
+    toast("Uploading photo…");
+    try {
+      const data = await toJpeg(input.files[0], 1200);
+      const j = await call("upload", { name: `review-${row}-${Date.now()}`, data });
+      reviewAction(row, { photo: j.url }, "Photo added ✓");
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
+  /* =========================================================
+     Shop settings: banners, top bar, menu, shipping, followers
+     ========================================================= */
+  const textOf = (a) => (typeof a === "string" ? a : (a && a.text) || "");
+  const starsFromHtml = (h) => String(h || "").replace(/<em>(.*?)<\/em>/g, "*$1*").replace(/<[^>]+>/g, "");
+  // "shop.html?cat=Anarkali%20Sets" → "Anarkali Sets", "shop.html?tag=new" → "new"
+  function showsFromLink(link) {
+    const m = String(link || "").match(/[?&](cat|tag)=([^&]+)/);
+    if (m) return decodeURIComponent(m[2]);
+    return /shop\.html$/.test(link || "") ? "all" : link || "all";
+  }
+  const S = (k) => settingsMap[k];
+  const has = (k) => k in settingsMap;
+  const val = (k, fallback) => (has(k) && S(k) !== "" ? S(k) : fallback);
+
+  // The banners the website shows now (Settings tab, else the website's built-in ones)
+  function bannerList() {
+    const count = Math.min(5, parseInt(S("banner_count"), 10) || C.heroSlides.length);
+    return Array.from({ length: count }, (_, i) => {
+      const base = C.heroSlides[i] || C.heroSlides[0];
+      const k = (f) => `banner_${i + 1}_${f}`;
+      return {
+        image: val(k("image"), base.image),
+        smallText: has(k("small_text")) ? S(k("small_text")) : base.eyebrow || "",
+        heading: val(k("heading"), starsFromHtml(base.title)),
+        text: has(k("text")) ? S(k("text")) : base.text || "",
+        button: val(k("button"), base.button || "Shop now"),
+        shows: val(k("shows"), showsFromLink(base.link)),
+        focus: val(k("focus"), "middle")
+      };
+    });
+  }
+
+  function showSettings() {
+    setTabs("settings");
+    editing = null;
+    const rateKeys = Object.keys(settingsMap).map((k) => k.match(/^shipping_(\d+)_items?$/)).filter((m) => m && S(m[0]) !== "")
+      .sort((a, b) => a[1] - b[1]);
+    cfg = {
+      banners: bannerList(),
+      announcements: [0, 1, 2].map((i) => (has(`announcement_${i + 1}`) ? S(`announcement_${i + 1}`) : textOf(C.announcements[i]))),
+      menu: has("menu_categories") && S("menu_categories") ? list(S("menu_categories")) : C.categories.slice(),
+      shippingTime: val("shipping_time", C.shippingTime),
+      rates: rateKeys.length ? rateKeys.map((m) => S(m[0]).replace(/[^\d.]/g, "")) : C.shippingRates.map(String),
+      followers: val("instagram_followers", C.instagramFollowers),
+      madeText: val("made_to_order_text", C.madeToOrderText),
+      oldRateCount: Math.max(rateKeys.length, 6)
+    };
+    dirty = false;
+    renderSettings();
+  }
+
+  const FOCUS_POS = { top: "center 15%", middle: "center", bottom: "center 85%" };
+  const bannerText = (b) => `${b.smallText ? `<small>${esc(b.smallText)}</small>` : ""}
+    <strong>${esc(b.heading).replace(/\*(.+?)\*/g, "<em>$1</em>")}</strong>
+    ${b.text ? `<p>${esc(b.text)}</p>` : ""}<span>${esc(b.button || "Shop now")}</span>`;
+
+  function renderSettings() {
+    const y = window.scrollY;
+    const cats = [...new Set([...cfg.menu, ...C.categories, ...designs.map((d) => d.category)].filter(Boolean))];
+    const showsOptions = (v) => {
+      const opts = [["new", "New arrivals"], ["bestseller", "Bestsellers"], ["all", "All products"], ...cats.map((c) => [c, `Category: ${c}`])];
+      if (!opts.some(([k]) => k === v)) opts.push([v, `Link: ${v}`]);
+      return opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("");
+    };
+    app.innerHTML = `
+      <div class="adm-head"><h1>Shop settings</h1></div>
+      <p class="adm-error" id="err" hidden></p>
+
+      <section class="adm-card">
+        <h2>Home page banners <small>${cfg.banners.length} of 5</small></h2>
+        <p class="muted small">Phones show the middle of the photo; computers show it wide. Check both previews, and use "Show top / middle / bottom" to move the photo. Put <strong>*stars*</strong> around a word in the heading to make it pink.</p>
+        ${cfg.banners.map((b, i) => `
+          <article class="adm-banner" data-b="${i}">
+            <div class="adm-prevs">${["phone", "computer"].map((kind) => `
+              <figure class="adm-prev ${kind}">
+                <div class="adm-prev-box">
+                  ${b.preview || b.image ? `<img src="${esc(b.preview || thumbOf(b.image))}" alt="" style="object-position:${FOCUS_POS[b.focus] || "center"}">` : `<span class="adm-prev-empty">No photo yet</span>`}
+                  <div class="adm-prev-text">${bannerText(b)}</div>
+                  ${b.uploading ? `<i class="adm-busy">Uploading…</i>` : ""}
+                </div>
+                <figcaption>${kind === "phone" ? "On phones" : "On computers"}</figcaption>
+              </figure>`).join("")}
+            </div>
+            <div class="adm-banner-tools">
+              <label class="adm-icon">📷 Change photo<input type="file" accept="image/*" data-bset="photo" hidden></label>
+              <select class="field" data-bset="focus" aria-label="Photo focus">
+                ${[["top", "Show top of photo"], ["middle", "Show middle"], ["bottom", "Show bottom"]].map(([k, l]) => `<option value="${k}" ${k === b.focus ? "selected" : ""}>${l}</option>`).join("")}
+              </select>
+              ${i > 0 ? `<button type="button" class="adm-icon" data-bact="up">↑</button>` : ""}
+              ${cfg.banners.length > 1 ? `<button type="button" class="adm-icon danger" data-bact="remove">✕</button>` : ""}
+            </div>
+            <div class="adm-two">
+              <div><label class="field-label">Small text</label><input class="field" data-bset="smallText" value="${esc(b.smallText)}" placeholder="New Collection"></div>
+              <div><label class="field-label">Button text</label><input class="field" data-bset="button" value="${esc(b.button)}" placeholder="Shop now"></div>
+            </div>
+            <label class="field-label">Heading</label>
+            <input class="field" data-bset="heading" value="${esc(b.heading)}" placeholder="Anarkalis made for *celebrations*">
+            <label class="field-label">Line under the heading</label>
+            <input class="field" data-bset="text" value="${esc(b.text)}">
+            <label class="field-label">Button opens</label>
+            <select class="field" data-bset="shows">${showsOptions(b.shows)}</select>
+          </article>`).join("")}
+        ${cfg.banners.length < 5 ? `<button type="button" class="btn btn-outline btn-block" data-sact="add-banner">+ Add a banner</button>` : ""}
+      </section>
+
+      <section class="adm-card">
+        <h2>Top bar messages</h2>
+        <p class="muted small">The thin strip at the very top. Leave a box empty to remove that message. Message 2 opens WhatsApp; message 3 opens the shipping policy.</p>
+        ${cfg.announcements.map((a, i) => `<label class="field-label">Message ${i + 1}</label><input class="field" data-sset="announcement" data-i="${i}" value="${esc(a)}" maxlength="90">`).join("")}
+      </section>
+
+      <section class="adm-card">
+        <h2>Menu categories</h2>
+        <p class="muted small">The categories in the website menu, in this order. Products in other categories still show in the shop and its filters.</p>
+        <ul class="adm-menu">${cfg.menu.map((c, i) => `
+          <li data-m="${i}"><span>${esc(c)}</span>
+            ${i > 0 ? `<button type="button" class="adm-icon" data-mact="up">↑</button>` : ""}
+            <button type="button" class="adm-icon danger" data-mact="remove">✕</button></li>`).join("")}</ul>
+        <div class="adm-inline">
+          <input class="field" id="new-cat" list="dl-cats" placeholder="Add a category, e.g. Lehengas">
+          <button type="button" class="btn btn-outline" data-sact="add-cat">Add</button>
+        </div>
+        <datalist id="dl-cats">${cats.filter((c) => !cfg.menu.includes(c)).map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+      </section>
+
+      <section class="adm-card">
+        <h2>Delivery &amp; shipping</h2>
+        <label class="field-label">Delivery time</label>
+        <input class="field" data-sset="shippingTime" value="${esc(cfg.shippingTime)}" placeholder="7–8 working days">
+        <label class="field-label">Shipping charge</label>
+        ${cfg.rates.map((r, i) => `
+          <div class="adm-inline adm-rate"><span>${i + 1} item${i ? "s" : ""}</span>
+            <input class="field" data-sset="rate" data-i="${i}" type="number" inputmode="numeric" min="0" value="${esc(r)}">
+            ${i === cfg.rates.length - 1 && i > 0 ? `<button type="button" class="adm-icon danger" data-sact="remove-rate">✕</button>` : ""}</div>`).join("")}
+        <button type="button" class="adm-icon" data-sact="add-rate">+ Add charge for ${cfg.rates.length + 1} items</button>
+        <p class="muted small">More items than listed: "by weight, confirmed on WhatsApp". Use 0 for free shipping.</p>
+      </section>
+
+      <section class="adm-card">
+        <h2>Other</h2>
+        <label class="field-label">Instagram followers (shown as "26.8K+")</label>
+        <input class="field" data-sset="followers" value="${esc(cfg.followers)}" placeholder="26.8K">
+        <label class="field-label">Made-to-order message</label>
+        <input class="field" data-sset="madeText" value="${esc(cfg.madeText)}">
+      </section>
+
+      <div class="adm-save"><button type="button" class="btn btn-block" data-sact="save" id="save-settings">Save settings</button></div>`;
+    window.scrollTo(0, y);
+  }
+
+  app.addEventListener("input", (e) => {
+    if (!cfg) return;
+    const t = e.target;
+    const banner = t.closest("[data-b]");
+    if (banner && t.dataset.bset && t.tagName !== "SELECT" && t.type !== "file") {
+      cfg.banners[Number(banner.dataset.b)][t.dataset.bset] = t.value;
+      // live preview without redrawing the form
+      const b = cfg.banners[Number(banner.dataset.b)];
+      banner.querySelectorAll(".adm-prev-text").forEach((el) => (el.innerHTML = bannerText(b)));
+      dirty = true;
+    }
+    const k = t.dataset.sset;
+    if (k === "announcement") cfg.announcements[Number(t.dataset.i)] = t.value;
+    else if (k === "rate") cfg.rates[Number(t.dataset.i)] = t.value;
+    else if (k) cfg[k] = t.value;
+    if (k) dirty = true;
+  });
+
+  app.addEventListener("change", async (e) => {
+    if (!cfg) return;
+    const t = e.target;
+    const banner = t.closest("[data-b]");
+    if (!banner || !t.dataset.bset) return;
+    const b = cfg.banners[Number(banner.dataset.b)];
+    if (t.tagName === "SELECT") { b[t.dataset.bset] = t.value; dirty = true; return renderSettings(); }
+    if (t.dataset.bset === "photo" && t.files.length) {
+      b.uploading = true;
+      b.preview = URL.createObjectURL(t.files[0]); // show the new photo straight away
+      renderSettings();
+      try {
+        const data = await toJpeg(t.files[0], 1800);
+        const j = await call("upload", { name: `banner-${Date.now()}`, data });
+        b.image = j.url;
+        dirty = true;
+      } catch (err) {
+        b.preview = "";
+        toast(err.message);
+      }
+      b.uploading = false;
+      if (cfg) renderSettings();
+    }
+  });
+
+  app.addEventListener("click", (e) => {
+    if (!cfg) return;
+    const t = e.target.closest("[data-bact], [data-mact], [data-sact]");
+    if (!t) return;
+    const bi = t.closest("[data-b]") ? Number(t.closest("[data-b]").dataset.b) : -1;
+    const mi = t.closest("[data-m]") ? Number(t.closest("[data-m]").dataset.m) : -1;
+    const act = t.dataset.bact || t.dataset.mact || t.dataset.sact;
+    if (act === "save") return saveSettings();
+    if (t.dataset.bact === "up") cfg.banners.splice(bi - 1, 0, ...cfg.banners.splice(bi, 1));
+    if (t.dataset.bact === "remove" && confirm("Remove this banner?")) cfg.banners.splice(bi, 1);
+    if (act === "add-banner") cfg.banners.push({ image: "", smallText: "", heading: "", text: "", button: "Shop now", shows: "new", focus: "middle" });
+    if (t.dataset.mact === "up") cfg.menu.splice(mi - 1, 0, ...cfg.menu.splice(mi, 1));
+    if (t.dataset.mact === "remove") cfg.menu.splice(mi, 1);
+    if (act === "add-cat") {
+      const name = $("#new-cat").value.trim();
+      if (!name) return;
+      if (!cfg.menu.some((c) => c.toLowerCase() === name.toLowerCase())) cfg.menu.push(name);
+    }
+    if (act === "add-rate") cfg.rates.push(cfg.rates[cfg.rates.length - 1] || "");
+    if (act === "remove-rate") cfg.rates.pop();
+    dirty = true;
+    renderSettings();
+  });
+
+  async function saveSettings() {
+    const fail = (msg) => { const box = $("#err"); box.textContent = msg; box.hidden = false; box.scrollIntoView({ behavior: "smooth", block: "center" }); };
+    if (cfg.banners.some((b) => b.uploading)) return fail("Please wait, a banner photo is still uploading.");
+    const noPhoto = cfg.banners.findIndex((b) => !b.image);
+    if (noPhoto >= 0) return fail(`Banner ${noPhoto + 1} needs a photo.`);
+    const noHeading = cfg.banners.findIndex((b) => !b.heading.trim());
+    if (noHeading >= 0) return fail(`Banner ${noHeading + 1} needs a heading.`);
+    if (!cfg.menu.length) return fail("Keep at least one menu category.");
+    if (cfg.rates.some((r) => r === "" || !(Number(r) >= 0))) return fail("Please fill in every shipping charge (0 for free).");
+
+    const values = {
+      "instagram followers": cfg.followers.trim().replace(/\+$/, ""),
+      "shipping time": cfg.shippingTime.trim(),
+      "made to order text": cfg.madeText.trim(),
+      "menu categories": cfg.menu.join(", "),
+      "banner count": String(cfg.banners.length)
+    };
+    cfg.announcements.forEach((a, i) => { values[`announcement ${i + 1}`] = a.trim(); });
+    for (let i = 0; i < Math.max(cfg.oldRateCount, cfg.rates.length); i++) {
+      values[`shipping ${i + 1} item${i ? "s" : ""}`] = i < cfg.rates.length ? String(Number(cfg.rates[i])) : null;
+    }
+    cfg.banners.forEach((b, i) => {
+      const n = `banner ${i + 1}`;
+      values[`${n} image`] = b.image;
+      values[`${n} small text`] = b.smallText.trim();
+      values[`${n} heading`] = b.heading.trim();
+      values[`${n} text`] = b.text.trim();
+      values[`${n} button`] = b.button.trim() || "Shop now";
+      values[`${n} shows`] = b.shows;
+      values[`${n} focus`] = b.focus;
+    });
+
+    const btn = $("#save-settings");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    try {
+      await call("saveSettings", { values });
+      dirty = false;
+      toast("Settings saved ✓ The website updates within about 5 minutes.");
+      if (await refresh()) showSettings();
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "Save settings";
+      fail(e.message);
+    }
+  }
+
+  if (auth.url && auth.pin) start(); else showLogin();
 })();

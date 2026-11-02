@@ -241,7 +241,7 @@
     const settings = {};
     rows.slice(1).forEach(([key, value]) => {
       const k = keyOf(key || "");
-      if (k && (value || "").trim()) settings[k] = value.trim();
+      if (k) settings[k] = (value || "").trim();
     });
     return settings;
   }
