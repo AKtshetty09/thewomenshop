@@ -100,28 +100,8 @@
     document.querySelectorAll("[data-wish-count]").forEach((el) => { el.textContent = wishN; el.hidden = !wishN; });
   }
 
-  /* ---------- colour swatches ----------
-     Colour name -> dot colour. The sheet's color_code column (e.g. #6b2d5c) overrides it. */
-  const SWATCH = {
-    black: "#111", white: "#fff", "off white": "#f6f1e7", cream: "#f3e9d2", ivory: "#f8f3e6", beige: "#e3cfae",
-    grey: "#9a9a9a", gray: "#9a9a9a", silver: "#c0c0c0", gold: "#c99a3c", golden: "#c99a3c",
-    red: "#c8102e", maroon: "#7a1f2b", wine: "#6d1a36", burgundy: "#6d1a36", rust: "#b5532a", orange: "#f08a24",
-    peach: "#f6b49a", coral: "#f2735f", pink: "#f28cb1", "baby pink": "#f7c6d4", "blush pink": "#f4c2c2",
-    "rani pink": "#e0218a", magenta: "#c2185b", purple: "#6a2c8c", lavender: "#b9a2d8", lilac: "#c8a2c8",
-    mauve: "#a8708b", violet: "#7f4fc9", blue: "#2457c5", navy: "#1f2a5a", "navy blue": "#1f2a5a",
-    "sky blue": "#87c3ee", "royal blue": "#2b4bb5", teal: "#16807f", turquoise: "#2bb5b0", green: "#2e8b3e",
-    "bottle green": "#0e4d2d", olive: "#6b7a2e", mint: "#a8e6c8", "sea green": "#2e8b57", yellow: "#f2c318",
-    mustard: "#d4a017", lemon: "#f4e04d", brown: "#7b4a2a", coffee: "#5b3a29", "coffee brown": "#5b3a29",
-    tan: "#c49a6c", khaki: "#b8a473", copper: "#b87333", multi: "", multicolour: "", multicolor: ""
-  };
-  // "Rust orange" -> rust orange colour; unknown names try their words ("Dark teal blue" -> teal)
-  function swatchColor(name, code) {
-    if (/^#[0-9a-f]{3,8}$/i.test(code || "")) return code;
-    const k = String(name || "").trim().toLowerCase();
-    if (k in SWATCH) return SWATCH[k];
-    const hit = k.split(/[\s/-]+/).find((w) => SWATCH[w]);
-    return hit ? SWATCH[hit] : "";
-  }
+  /* ---------- colour swatches (colour names → dot colours live in data.js) ---------- */
+  const swatchColor = window.swatchColor;
   // A small round colour dot ("multi" or unknown colours get a rainbow)
   const swatch = (name, code, cls = "") => {
     const c = swatchColor(name, code);
