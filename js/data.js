@@ -83,36 +83,128 @@
     .replace(/(lh3\.googleusercontent\.com\/d\/[\w-]+)=w\d+/, "$1=w600")
     .replace(/(images\.unsplash\.com\/[^?]+\?(?:.*&)?w=)\d+/, "$1600");
 
+  /* ---------- sizes & colours ---------- */
+  const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "4XL", "5XL", "6XL", "FREE SIZE"];
+  const sizeRank = (s) => {
+    const i = SIZE_ORDER.indexOf(String(s).toUpperCase());
+    return i >= 0 ? i : 100 + (parseFloat(s) || 0); // numeric sizes (32, 34…) after letter sizes
+  };
+  window.sortSizes = (arr) => arr.slice().sort((a, b) => sizeRank(a) - sizeRank(b));
+  // "Rust Orange " -> "rust orange" (to compare colours); "rust-orange" for links
+  const colorKey = (c) => String(c || "").trim().toLowerCase().replace(/\s+/g, " ");
+  window.colorKey = colorKey;
+  window.colorSlug = (c) => colorKey(c).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // The colour variant of a product (falls back to its first colour)
+  window.variantOf = (p, color) => p.variants.find((v) => v.key === colorKey(color)) || p.variants[0];
+
+  // Product details shown on the product page, in this order (only filled ones are shown)
+  const DETAIL_FIELDS = [["fabric", "Fabric"], ["lining", "Lining"], ["length", "Length"],
+    ["sleeve_type", "Sleeve type"], ["sleeve", "Sleeve type"], ["neck", "Neck"], ["work", "Work"],
+    ["dupatta", "Dupatta"], ["bottom", "Bottom"], ["occasion", "Occasion"], ["wash_care", "Wash care"]];
+  function detailsOf(o) {
+    const out = [];
+    DETAIL_FIELDS.forEach(([k, label]) => {
+      if (o[k] && !out.some((d) => d.label === label)) out.push({ label, value: o[k] });
+    });
+    // other_details: "Pattern: Embroidered; Closure: Zip" (or one per line)
+    String(o.other_details || "").split(/[;\n]/).forEach((part) => {
+      const [label, ...rest] = part.split(":");
+      if (label.trim() && rest.join(":").trim()) out.push({ label: label.trim(), value: rest.join(":").trim() });
+    });
+    return out;
+  }
+
+  /* ---------- sheet rows -> products ----------
+     One design = all rows with the same id. Each row is one colour (or a list of colours that
+     share the same photos). Only the first row needs name, price, details…; other rows need just
+     the colour, photos and sold-out sizes, and can override price/mrp/sizes for that colour. */
   function rowsToProducts(rows) {
     const headers = rows[0].map(keyOf);
-    return rows.slice(1).map((r, i) => {
+    const isUrl = (v) => /^https?:\/\//i.test(v);
+    const designs = new Map();
+    rows.slice(1).forEach((r, i) => {
       const o = {};
-      headers.forEach((h, idx) => (o[h] = (r[idx] || "").trim()));
-      const images = headers.filter((h) => h.startsWith("image")).map((h) => o[h]).filter(Boolean).map(imageUrl);
-      const price = num(o.price);
+      headers.forEach((h, idx) => { if (h && !o[h]) o[h] = (r[idx] || "").trim(); });
+      // photos: image1, image2… columns, plus link cells in columns without a heading
+      const images = r.map((v, idx) => [headers[idx], (v || "").trim()])
+        .filter(([h, v]) => v && (h.startsWith("image") || (!h && isUrl(v))))
+        .map(([, v]) => imageUrl(v));
       const stock = (o.in_stock || "").toLowerCase();
-      const sizes = list(o.sizes);
-      const soldOutSizes = list(o.sold_out_sizes).filter((s) => sizes.includes(s));
-      return {
-        id: o.id || `P${i + 1}`,
-        name: o.name,
-        category: o.category || "Others",
-        price,
-        mrp: num(o.mrp) || price,
-        sizes,
-        soldOutSizes,
-        colors: list(o.colors),
-        images,
-        fabric: o.fabric || "",
-        description: o.description || "",
-        hidden: /^(hide|hidden|draft)$/.test(stock),
-        // sold out if marked "no", or if every size is in the sold-out list
-        inStock: (stock === "" || yes(stock)) && !(sizes.length && soldOutSizes.length === sizes.length),
-        tag: (o.tag || "").toLowerCase(),
-        featured: yes(o.featured),
-        madeToOrder: yes(o.made_to_order)
+      const row = {
+        o, images, stock,
+        colors: list(o.colors || o.colours || o.color || o.colour),
+        sizes: list(o.sizes),
+        soldOut: list(o.sold_out_sizes),
+        hidden: /^(hide|hidden|draft)$/.test(stock)
       };
-    }).filter((p) => p.name && p.price && !p.hidden);
+      const id = o.id || `P${i + 1}`;
+      if (!designs.has(id)) designs.set(id, []);
+      designs.get(id).push(row);
+    });
+    return [...designs].map(([id, list]) => buildDesign(id, list)).filter(Boolean);
+  }
+
+  function buildDesign(id, rows) {
+    const base = rows.find((r) => r.o.name) || rows[0];
+    const b = base.o;
+    const basePrice = num(b.price);
+    if (!b.name || !basePrice || base.hidden) return null;
+
+    // every size the design is made in (sizes from all its rows), in S-M-L order
+    const sizeNames = new Map();
+    rows.forEach((r) => r.sizes.forEach((s) => { if (!sizeNames.has(s.toUpperCase())) sizeNames.set(s.toUpperCase(), s); }));
+    const sizes = window.sortSizes([...sizeNames.values()]);
+
+    const variants = new Map();
+    rows.forEach((r) => {
+      if (r.hidden) return;
+      const own = (r.sizes.length ? r.sizes : base.sizes.length ? base.sizes : sizes).map((s) => s.toUpperCase());
+      const soldOut = r.soldOut.map((s) => s.toUpperCase());
+      const available = sizes.filter((s) => own.includes(s.toUpperCase()) && !soldOut.includes(s.toUpperCase()));
+      const price = num(r.o.price) || basePrice;
+      const mrp = Math.max(num(r.o.mrp) || num(b.mrp) || price, price);
+      const flag = r.stock || base.stock; // a colour's own yes/no, else the design's
+      const inStock = (flag === "" || yes(flag)) && (!sizes.length || available.length > 0);
+      const colors = r.colors.length ? r.colors : r === base ? [""] : [];
+      const specific = colors.length === 1; // this row is about one colour only
+      colors.forEach((c) => {
+        const key = colorKey(c);
+        const prev = variants.get(key);
+        if (prev && prev.specific && !specific) return; // a colour's own row wins over a shared row
+        variants.set(key, {
+          color: c.trim(), key,
+          images: r.images.length ? r.images : base.images,
+          price, mrp, available, inStock, specific,
+          madeToOrder: r.o.made_to_order ? yes(r.o.made_to_order) : yes(b.made_to_order),
+          code: r.o.color_code || ""
+        });
+      });
+    });
+    const vars = [...variants.values()];
+    if (!vars.length) return null;
+    const def = vars.find((v) => v.inStock) || vars[0]; // colour shown first
+
+    return {
+      id,
+      name: b.name,
+      category: b.category || "Others",
+      price: def.price,
+      mrp: def.mrp,
+      sizes,
+      soldOutSizes: sizes.filter((s) => !def.available.includes(s)),
+      colors: vars.map((v) => v.color).filter(Boolean),
+      variants: vars,
+      images: def.images,
+      description: b.description || "",
+      details: detailsOf(b),
+      fabric: b.fabric || "",
+      sleeve: b.sleeve_type || b.sleeve || "",
+      dupatta: b.dupatta || "",
+      inStock: vars.some((v) => v.inStock),
+      tag: (b.tag || "").toLowerCase(),
+      featured: yes(b.featured),
+      madeToOrder: def.madeToOrder
+    };
   }
 
   // Rows of "setting, value" (Settings tab)
@@ -152,7 +244,7 @@
   function loadCsv(name, url, parse, fallback) {
     if (loaders[name]) return loaders[name];
     if (!url) return (loaders[name] = Promise.resolve(fallback));
-    const key = `tws_${name}_v2`;
+    const key = `tws_${name}_v3`;
     try {
       const cached = JSON.parse(sessionStorage.getItem(key) || "null");
       if (cached && Date.now() - cached.time < CACHE_MS) return (loaders[name] = Promise.resolve(cached.data));
@@ -172,7 +264,17 @@
 
   // Products: samples only when no sheet is set. If the sheet fails, show nothing rather than
   // fake products (pages show a "please refresh" message for an empty list).
-  window.loadProducts = () => loadCsv("products", C.sheetCsvUrl, rowsToProducts, SAMPLE_PRODUCTS)
+  // Sample products in the same shape as sheet products (one shared photo set for their colours)
+  const samples = () => SAMPLE_PRODUCTS.map((p) => {
+    const variants = (p.colors.length ? p.colors : [""]).map((c) => ({
+      color: c, key: colorKey(c), images: p.images, price: p.price, mrp: p.mrp,
+      available: p.sizes.slice(), inStock: p.inStock, specific: false, madeToOrder: false, code: ""
+    }));
+    return { ...p, sizes: window.sortSizes(p.sizes), soldOutSizes: [], variants,
+      details: p.fabric ? [{ label: "Fabric", value: p.fabric }] : [], sleeve: "", dupatta: "", madeToOrder: false };
+  });
+
+  window.loadProducts = () => loadCsv("products", C.sheetCsvUrl, rowsToProducts, samples())
     .catch((err) => { console.warn("Could not load the product sheet.", err); window.productsFailed = true; return []; });
 
   window.loadSettings = () => loadCsv("settings", C.settingsCsvUrl, rowsToSettings, {})

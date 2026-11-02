@@ -100,9 +100,43 @@
     document.querySelectorAll("[data-wish-count]").forEach((el) => { el.textContent = wishN; el.hidden = !wishN; });
   }
 
+  /* ---------- colour swatches ----------
+     Colour name -> dot colour. The sheet's color_code column (e.g. #6b2d5c) overrides it. */
+  const SWATCH = {
+    black: "#111", white: "#fff", "off white": "#f6f1e7", cream: "#f3e9d2", ivory: "#f8f3e6", beige: "#e3cfae",
+    grey: "#9a9a9a", gray: "#9a9a9a", silver: "#c0c0c0", gold: "#c99a3c", golden: "#c99a3c",
+    red: "#c8102e", maroon: "#7a1f2b", wine: "#6d1a36", burgundy: "#6d1a36", rust: "#b5532a", orange: "#f08a24",
+    peach: "#f6b49a", coral: "#f2735f", pink: "#f28cb1", "baby pink": "#f7c6d4", "blush pink": "#f4c2c2",
+    "rani pink": "#e0218a", magenta: "#c2185b", purple: "#6a2c8c", lavender: "#b9a2d8", lilac: "#c8a2c8",
+    mauve: "#a8708b", violet: "#7f4fc9", blue: "#2457c5", navy: "#1f2a5a", "navy blue": "#1f2a5a",
+    "sky blue": "#87c3ee", "royal blue": "#2b4bb5", teal: "#16807f", turquoise: "#2bb5b0", green: "#2e8b3e",
+    "bottle green": "#0e4d2d", olive: "#6b7a2e", mint: "#a8e6c8", "sea green": "#2e8b57", yellow: "#f2c318",
+    mustard: "#d4a017", lemon: "#f4e04d", brown: "#7b4a2a", coffee: "#5b3a29", "coffee brown": "#5b3a29",
+    tan: "#c49a6c", khaki: "#b8a473", copper: "#b87333", multi: "", multicolour: "", multicolor: ""
+  };
+  // "Rust orange" -> rust orange colour; unknown names try their words ("Dark teal blue" -> teal)
+  function swatchColor(name, code) {
+    if (/^#[0-9a-f]{3,8}$/i.test(code || "")) return code;
+    const k = String(name || "").trim().toLowerCase();
+    if (k in SWATCH) return SWATCH[k];
+    const hit = k.split(/[\s/-]+/).find((w) => SWATCH[w]);
+    return hit ? SWATCH[hit] : "";
+  }
+  // A small round colour dot ("multi" or unknown colours get a rainbow)
+  const swatch = (name, code, cls = "") => {
+    const c = swatchColor(name, code);
+    return `<span class="swatch ${cls}" style="${c ? `background:${c}` : "background:conic-gradient(#e0336f,#f2c318,#2e8b3e,#2457c5,#6a2c8c,#e0336f)"}" aria-hidden="true"></span>`;
+  };
+
   /* ---------- WhatsApp / Instagram links ---------- */
-  // Short product link with photo preview (pages made from the sheet every hour; 404.html covers new ones)
-  const pageLink = (p) => `https://${C.domain}/p/${encodeURIComponent(p.id)}`;
+  // Short product link with photo preview (pages made from the sheet every hour; 404.html covers new ones).
+  // With a colour: twshop.in/p/TWS001-rust-orange shows that colour's photo in WhatsApp/Instagram previews.
+  const pageLink = (p, color) => {
+    const c = color === undefined ? p.color : color;
+    return `https://${C.domain}/p/${encodeURIComponent(p.id)}${c ? `-${window.colorSlug(c)}` : ""}`;
+  };
+  // Link to a product page on this site, opened at a colour
+  const productUrl = (p, color) => `product.html?id=${encodeURIComponent(p.id)}${color ? `&c=${encodeURIComponent(window.colorSlug(color))}` : ""}`;
   const waLink = (text) => `https://wa.me/${C.whatsappNumber}?text=${encodeURIComponent(text)}`;
   const igProfile = `https://www.instagram.com/${C.instagramHandle}/`;
   const igDM = `https://ig.me/m/${C.instagramHandle}`;
@@ -127,7 +161,10 @@
   function makeOrder(items) {
     const d = new Date();
     const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-    const lines = items.map(({ p, size, color, qty }) => ({ id: p.id, name: p.name, image: p.images[0] || "", size, color: color || "", qty, price: p.price }));
+    const lines = items.map(({ p, size, color, qty }) => {
+      const v = window.variantOf(p, color);
+      return { id: p.id, name: p.name, image: v.images[0] || "", size, color: color || "", qty, price: v.price };
+    });
     return {
       id: `TWS${ymd}-${Math.floor(1000 + Math.random() * 9000)}`,
       date: d.toISOString(),
@@ -153,9 +190,10 @@
   }
 
   /* ---------- share a product (phone share menu, or copy the link) ---------- */
-  async function shareProduct(p) {
-    const url = pageLink(p) || location.href;
-    const data = { title: p.name, text: `${p.name}: ${money(p.price)} at ${C.name}`, url };
+  async function shareProduct(p, color = "") {
+    const v = window.variantOf(p, color);
+    const url = pageLink(p, p.variants.length > 1 ? v.color : "") || location.href;
+    const data = { title: p.name, text: `${p.name}${v.color && p.variants.length > 1 ? ` (${v.color})` : ""}: ${money(v.price)} at ${C.name}`, url };
     if (navigator.share) {
       try { await navigator.share(data); } catch (e) { /* closed the share menu */ }
       return;
@@ -186,7 +224,7 @@
     if (!q.length) return products.slice();
     return products.map((p) => {
       const name = words(p.name), cat = words(p.category);
-      const rest = words([p.description, p.fabric, p.colors.join(" "), p.id, p.tag].join(" "));
+      const rest = words([p.description, p.colors.join(" "), (p.details || []).map((d) => d.value).join(" "), p.id, p.tag].join(" "));
       let score = 0;
       for (const w of q) {
         const hit = (list) => list.some((x) => x.startsWith(w));
@@ -254,28 +292,36 @@
 
   /* ---------- product card ---------- */
   const thumb = (url) => window.toThumbUrl(url);
-  function productCard(p) {
-    const off = discount(p);
+  // opts.color: show that colour's photo and price (used when the shop is filtered by colour)
+  function productCard(p, opts = {}) {
+    const v = opts.color ? window.variantOf(p, opts.color) : p.variants.find((x) => x.inStock) || p.variants[0];
+    const off = discount(v);
     const wished = Wishlist.has(p.id);
-    const badge = !p.inStock ? '<span class="badge badge-dark">Sold out</span>'
+    const soldOut = !v.inStock;
+    const badge = soldOut ? '<span class="badge badge-dark">Sold out</span>'
       : p.tag === "new" ? '<span class="badge">New</span>'
       : p.tag === "bestseller" ? '<span class="badge badge-gold">Bestseller</span>' : "";
-    const img2 = p.images[1] ? `<img class="img-alt" src="${esc(thumb(p.images[1]))}" alt="" loading="lazy">` : "";
+    const img2 = v.images[1] ? `<img class="img-alt" src="${esc(thumb(v.images[1]))}" alt="" loading="lazy">` : "";
+    const href = productUrl(p, p.variants.length > 1 ? v.color : "");
+    const coloured = p.variants.filter((x) => x.color);
+    const dots = coloured.length > 1 ? `
+          <p class="card-colors">${coloured.slice(0, 5).map((x) => swatch(x.color, x.code, x.key === v.key ? "on" : "")).join("")}
+            <span>${coloured.length} colours</span></p>` : "";
     return `
-      <article class="card ${p.inStock ? "" : "is-soldout"}">
-        <a class="card-media" href="product.html?id=${encodeURIComponent(p.id)}">
-          <img src="${esc(thumb(p.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
+      <article class="card ${soldOut ? "is-soldout" : ""}">
+        <a class="card-media" href="${href}">
+          <img src="${esc(thumb(v.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}${v.color ? ` – ${esc(v.color)}` : ""}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
           ${img2}
           ${badge}
         </a>
         <button class="wish-btn ${wished ? "active" : ""}" data-wish="${esc(p.id)}" aria-label="Add to wishlist">${icon("heart")}</button>
-        <a class="card-body" href="product.html?id=${encodeURIComponent(p.id)}">
+        <a class="card-body" href="${href}">
           <p class="card-cat">${esc(p.category)}</p>
           <h3 class="card-title">${esc(p.name)}</h3>
           <p class="price">
-            <strong>${money(p.price)}</strong>
-            ${off ? `<s>${money(p.mrp)}</s><span class="off">(${off}% OFF)</span>` : ""}
-          </p>
+            <strong>${money(v.price)}</strong>
+            ${off ? `<s>${money(v.mrp)}</s><span class="off">(${off}% OFF)</span>` : ""}
+          </p>${dots}
         </a>
       </article>`;
   }
@@ -410,17 +456,18 @@
       return;
     }
 
-    const mrpTotal = items.reduce((n, i) => n + i.p.mrp * i.qty, 0);
-    const total = items.reduce((n, i) => n + i.p.price * i.qty, 0);
+    items.forEach((i) => (i.v = window.variantOf(i.p, i.color)));
+    const mrpTotal = items.reduce((n, i) => n + i.v.mrp * i.qty, 0);
+    const total = items.reduce((n, i) => n + i.v.price * i.qty, 0);
     body.innerHTML = `
       <ul class="bag-list">
-        ${items.map(({ p, size, color, qty }) => `
+        ${items.map(({ p, v, size, color, qty }) => `
           <li class="bag-item">
-            <a href="product.html?id=${encodeURIComponent(p.id)}"><img src="${esc(thumb(p.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}"></a>
+            <a href="${productUrl(p, color)}"><img src="${esc(thumb(v.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}"></a>
             <div>
               <h4>${esc(p.name)}</h4>
               <p class="muted">Size: ${esc(size)}${color ? ` · Colour: ${esc(color)}` : ""}</p>
-              <p class="price"><strong>${money(p.price)}</strong>${p.mrp > p.price ? `<s>${money(p.mrp)}</s>` : ""}</p>
+              <p class="price"><strong>${money(v.price)}</strong>${v.mrp > v.price ? `<s>${money(v.mrp)}</s>` : ""}</p>
               <div class="qty" data-id="${esc(p.id)}" data-size="${esc(size)}" data-color="${esc(color || "")}">
                 <button data-qty="-1" aria-label="Decrease">−</button><span>${qty}</span><button data-qty="1" aria-label="Increase">+</button>
                 <button class="remove" data-qty="remove" aria-label="Remove">${icon("trash")}</button>
@@ -692,5 +739,5 @@
   updateCounts();
   window.addEventListener("storage", updateCounts);
 
-  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, track, shippingFor, shippingLine, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
+  window.TWS = { esc, money, discount, icon, productCard, Bag, Wishlist, toast, Orders, Recent, shareProduct, thumb, searchProducts, track, shippingFor, shippingLine, swatch, swatchColor, productUrl, pageLink, stars, reviewCard, openReviewForm, makeOrder, orderWhatsApp, settingsReady, fillText, igDM, igProfile, waLink, openBag: () => { renderBag(); openDrawer("bag-drawer"); }, PLACEHOLDER };
 })();

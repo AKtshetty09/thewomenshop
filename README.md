@@ -3,10 +3,16 @@
 Website for The Women Shop, Ongole: https://twshop.in
 Instagram: [@thewomenshop.in](https://www.instagram.com/thewomenshop.in/)
 
-Products are managed in Google Sheets. Columns:
+Products are managed in Google Sheets (see `products-template.csv`). **One row per colour**:
+rows with the same `id` are one design. Fill everything in the design's first row; other colour rows
+need only `colors` (one colour), photos and `sold_out_sizes`, and may override `price`, `mrp`, `sizes`,
+`in_stock` or `made_to_order` for that colour.
 
-id · name · category · price · mrp · sizes · sold_out_sizes · colors · image1, image2, … ·
-description · fabric · in_stock (yes / no / hide) · tag (new/bestseller) · featured (yes/no)
+Columns: id · name · category · price · mrp · sizes (every size the design is made in) ·
+sold_out_sizes (shown crossed out) · colors · color_code (optional dot colour, e.g. #16807f) ·
+image1, image2, … · description · fabric · lining · length · sleeve_type · dupatta · bottom ·
+other_details ("Work: Handwork; Occasion: Festive") · in_stock (yes / no / hide) · made_to_order ·
+tag (new/bestseller) · featured (yes/no)
 
 The Settings tab of the same sheet controls the follower count, shipping time,
 top bar messages and home banners (see `settings-template.csv`).

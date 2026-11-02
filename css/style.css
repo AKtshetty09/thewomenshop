@@ -68,7 +68,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .logo-has-img { display: block; flex: none; line-height: 0; }
 .logo-has-img img { height: 56px; aspect-ratio: 2.3; object-fit: cover; object-position: center; border-radius: 10px; background: #000; }
 .drawer-head .logo-has-img img { height: 48px; }
-.site-footer .logo-has-img img { height: 96px; border-radius: 14px; box-shadow: 0 0 0 1px rgba(201, 154, 60, .35); }
+.site-footer .logo-has-img img { height: 96px; border-radius: 0; }
 .main-nav { display: flex; gap: 18px; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
 .main-nav a { position: relative; padding: 26px 0; color: rgba(255, 255, 255, .78); transition: color .2s; white-space: nowrap; }
 .main-nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 18px; height: 2px; background: var(--primary); transform: scaleX(0); transition: transform .25s; }
@@ -488,7 +488,10 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .policy-note a { text-decoration: underline; font-weight: 600; }
 
 /* ---------- sold-out sizes, colour picker, share ---------- */
-.sizes button.sold { color: var(--muted); background: var(--bg-soft); text-decoration: line-through; cursor: not-allowed; opacity: .6; }
+/* sold-out / not-made sizes: greyed with an X across */
+.sizes button.sold { color: var(--muted); border-color: var(--line); cursor: not-allowed; opacity: .75;
+  background: linear-gradient(45deg, transparent calc(50% - .7px), #cfc7d3 calc(50% - .7px), #cfc7d3 calc(50% + .7px), transparent calc(50% + .7px)),
+              linear-gradient(-45deg, transparent calc(50% - .7px), #cfc7d3 calc(50% - .7px), #cfc7d3 calc(50% + .7px), transparent calc(50% + .7px)), var(--bg-soft); }
 .sizes button.sold:hover { border-color: var(--line); color: var(--muted); }
 .colors-pick button { min-width: 0; height: 44px; padding: 0 18px; font-weight: 500; }
 .opt-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
@@ -500,6 +503,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 
 /* ---------- load more ---------- */
 .load-more { display: grid; justify-items: center; gap: 10px; margin-top: 36px; }
+.load-more[hidden] { display: none; }
 .load-more .btn { min-width: 220px; }
 
 /* ---------- customer reviews ---------- */
@@ -628,3 +632,34 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .mto-note .ico { color: #5b2c8f; }
 .bag-summary .small { font-size: 12px; text-align: right; max-width: 60%; }
 .pay-break { grid-column: 1 / -1; margin: 0; font-size: 13px; color: var(--muted); }
+
+/* ---------- colour variants ---------- */
+.swatch { display: inline-block; width: 16px; height: 16px; border-radius: 50%; flex: none; vertical-align: -3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
+.opt-value { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--ink-2); }
+/* colour picker with each colour's photo (like "More colours") */
+.variant-pick { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
+.variant-pick::-webkit-scrollbar { display: none; }
+.vp { flex: none; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.vp-img { position: relative; width: 76px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; border: 2px solid var(--line); background: var(--primary-soft); transition: border-color .2s; }
+.vp-img img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.vp-name { font-size: 12px; line-height: 1.25; text-align: center; color: var(--ink-2); }
+.vp:hover .vp-img { border-color: #e9a7c0; }
+.vp.active .vp-img { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+.vp.active .vp-name { color: var(--ink); font-weight: 600; }
+.vp.sold .vp-img img { filter: grayscale(.7); opacity: .55; }
+.vp.sold .vp-img::after { content: "Sold out"; position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 0; background: rgba(36, 26, 42, .75); color: #fff; font-size: 10px; font-weight: 600; text-align: center; }
+/* colour name buttons with a dot (when colours share one photo) */
+.colors-pick button { display: inline-flex; align-items: center; gap: 8px; }
+.colors-pick button.sold { text-decoration: line-through; opacity: .6; }
+/* colour dots on product cards */
+.card-colors { display: flex; align-items: center; gap: 4px; margin: 8px 0 0; }
+.card-colors .swatch { width: 12px; height: 12px; }
+.card-colors .swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--ink-2); }
+.card-colors span:last-child { margin-left: 4px; font-size: 11.5px; color: var(--muted); }
+
+/* ---------- filters: counts, empty options, long lists ---------- */
+.check.is-empty, .size-chips label.is-empty { opacity: .45; cursor: not-allowed; }
+.size-chips label.is-empty span { text-decoration: line-through; }
+.check .swatch { margin-right: 2px; }
+.f-scroll { max-height: 260px; overflow-y: auto; padding-right: 4px; }
+.pill .swatch { width: 12px; height: 12px; }
