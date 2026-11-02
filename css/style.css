@@ -793,6 +793,13 @@ body.adm-has-tabs .adm-save { bottom: calc(60px + env(safe-area-inset-bottom)); 
 .adm-todo .bad { background: #fdecef; color: #8a1c3c; border-color: #e0577f; }
 .adm-todo .warn { background: #fff7e6; color: #8a5a00; border-color: #f0b840; }
 .adm-todo .info { background: #eef4ff; color: #1d4ea8; border-color: #7aa2f0; }
+.adm-sweet { font-style: italic; color: var(--ink-2); }
+.adm-heart { position: fixed; bottom: -40px; z-index: 60; font-size: 26px; pointer-events: none; opacity: 0; animation: admHeart 2.6s ease-out forwards; }
+@keyframes admHeart {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-75vh) scale(1.25) rotate(var(--turn)); opacity: 0; }
+}
 .adm-allgood { padding: 14px; border-radius: 12px; background: #e7f8ee; color: #127a3e; text-align: center; font-weight: 600; }
 .adm-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .adm-quick .btn { padding: 12px 10px; font-size: 14px; }

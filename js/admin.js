@@ -17,6 +17,60 @@
   const SLEEVES = ["Full sleeve", "Three-quarter sleeve", "Half sleeve", "Short sleeve", "Sleeveless", "Cap sleeve"];
   const AUTH = "tws_admin";
 
+  /* ---------- for Kavya 💕 ---------- */
+  const OWNER = "Kavya";
+  // India time (IST), whatever time zone the phone is set to
+  function indiaNow() {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false }).formatToParts(new Date());
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    return { hour: Number(p.hour) % 24, day: `${p.year}-${p.month}-${p.day}` };
+  }
+  function greeting() {
+    const h = indiaNow().hour;
+    if (h >= 5 && h < 12) return `Good morning, ${OWNER} ☀️`;
+    if (h >= 12 && h < 17) return `Hello ${OWNER} 😉`;
+    if (h >= 17 && h < 21) return `Good evening, ${OWNER} 🌸`;
+    if (h >= 21) return `Hey night owl, ${OWNER} 🌙`;
+    return `Still awake, ${OWNER}? 😴💕`;
+  }
+  // a different sweet line every day (changes at midnight, India time)
+  const SWEET = [
+    "Proud of you, boss lady 👑",
+    "Every order is someone falling for your taste ✨",
+    "Your shop, your rules, your magic 💫",
+    "One more step towards your dream boutique 🌷",
+    "You make this look so easy 💖",
+    "Somewhere today, someone is twirling in a dress you picked 💃",
+    "Small shop, big heart. That's you ❤️",
+    "Drink some water and take a deep breath. You've got this 💧",
+    "Chai first, orders next ☕",
+    "Someone is very, very proud of you today 🤍",
+    "Every parcel you pack carries a little bit of you 🎁",
+    "Hard work looks beautiful on you ✨",
+    "New day, new orders, same amazing you 🌼",
+    "Dream big, sell bigger 🚀",
+    "Rest is part of the work too. Don't forget it 🌙",
+    "Your smile is still the best thing in this shop 😊",
+    "The prettiest boutique in Ongole has the prettiest owner 🌸",
+    "You started this. Look how far it has come 🌱"
+  ];
+  const sweetLine = () => SWEET[Math.floor(Date.parse(`${indiaNow().day}T00:00:00Z`) / 86400000) % SWEET.length];
+  // a little burst of hearts (when an order is delivered)
+  function hearts() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const icons = ["💖", "💕", "💗", "🌸", "✨"];
+    for (let i = 0; i < 18; i++) {
+      const h = document.createElement("span");
+      h.className = "adm-heart";
+      h.textContent = icons[i % icons.length];
+      h.style.left = `${4 + Math.random() * 92}%`;
+      h.style.animationDelay = `${(Math.random() * 0.7).toFixed(2)}s`;
+      h.style.setProperty("--turn", `${Math.round(Math.random() * 60 - 30)}deg`);
+      document.body.appendChild(h);
+      setTimeout(() => h.remove(), 3500);
+    }
+  }
+
   let auth = JSON.parse(localStorage.getItem(AUTH) || "null") || {};
   let designs = [];     // products from the sheet
   let editing = null;   // the product on the edit screen
@@ -59,7 +113,7 @@
     setTabs(null);
     app.innerHTML = `
       <section class="adm-card adm-login">
-        <h1>Shop Admin</h1>
+        <h1>Welcome back, ${OWNER} 💖</h1>
         <p class="muted">Add products, colours, photos and stock from your phone.</p>
         ${msg ? `<p class="adm-error">${esc(msg)}</p>` : ""}
         <form id="login" novalidate>
@@ -94,7 +148,7 @@
     auth = { url: auth.url };
     localStorage.setItem(AUTH, JSON.stringify(auth));
     dirty = false;
-    showLogin("Logged out.");
+    showLogin(`Logged out. See you soon, ${OWNER} 👋💕`);
   });
 
   /* ---------- sheet rows → products (one row per colour; same id = one product) ---------- */
@@ -955,8 +1009,8 @@
     const LIMIT = 8;
     const stat = (n, label, go, kind = "") => `<button type="button" class="adm-stat ${kind}" data-go="${go}"><strong>${n}</strong><span>${label}</span></button>`;
     app.innerHTML = `
-      <h1 class="adm-h1">Hello! 👋</h1>
-      <p class="muted">Here's your shop today.</p>
+      <h1 class="adm-h1">${greeting()}</h1>
+      <p class="muted adm-sweet">${sweetLine()}</p>
       <div class="adm-stats">
         ${stat(toShip.length, "orders to pack &amp; ship", "orders-ship", toShip.length ? "hot" : "")}
         ${stat(unpaid.length, "awaiting payment", "orders-new")}
@@ -973,7 +1027,7 @@
         ${todo.length ? `<ul class="adm-todo">${todo.slice(0, LIMIT).map((t) => `
           <li><button type="button" class="${t.kind}" ${t.order ? `data-order="${esc(t.order)}"` : t.id ? `data-open="${esc(t.id)}"` : `data-go="${t.go}"`}>${esc(t.text)} <span>›</span></button></li>`).join("")}</ul>
           ${todo.length > LIMIT ? `<p class="muted small">…and ${todo.length - LIMIT} more. Fix these first.</p>` : ""}`
-        : `<p class="adm-allgood">Everything looks good ✨</p>`}
+        : `<p class="adm-allgood">All caught up! Time for a chai break, ${OWNER} ☕💕</p>`}
       </section>
 
       <section class="adm-card">
@@ -1958,6 +2012,7 @@
       }
       renderOrder();
       if (!o.row || to) window.scrollTo(0, 0);
+      if (to === "delivered") hearts();
       return true;
     } catch (e) {
       busy.forEach((b) => (b.disabled = false));
