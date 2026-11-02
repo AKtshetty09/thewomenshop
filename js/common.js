@@ -313,6 +313,7 @@
           <img src="${esc(thumb(v.images[0]) || PLACEHOLDER)}" alt="${esc(p.name)}${v.color ? ` – ${esc(v.color)}` : ""}" loading="lazy" onerror="this.onerror=null;this.src='${PLACEHOLDER}'">
           ${img2}
           ${badge}
+          ${opts.color && v.shownIn ? `<span class="card-shown">Shown in ${esc(v.shownIn)}</span>` : ""}
         </a>
         <button class="wish-btn ${wished ? "active" : ""}" data-wish="${esc(p.id)}" aria-label="Add to wishlist">${icon("heart")}</button>
         <a class="card-body" href="${href}">

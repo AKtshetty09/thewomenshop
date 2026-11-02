@@ -160,11 +160,14 @@
       if (r.hidden) return;
       const own = (r.sizes.length ? r.sizes : base.sizes.length ? base.sizes : sizes).map((s) => s.toUpperCase());
       const soldOut = r.soldOut.map((s) => s.toUpperCase());
-      const available = sizes.filter((s) => own.includes(s.toUpperCase()) && !soldOut.includes(s.toUpperCase()));
+      const flag = r.stock || base.stock; // a colour's own yes/no, else the design's
+      const stocked = flag === "" || yes(flag);
+      const made = sizes.filter((s) => own.includes(s.toUpperCase())); // sizes this colour comes in
+      // marked sold out (in_stock = no): no size is available
+      const available = stocked ? made.filter((s) => !soldOut.includes(s.toUpperCase())) : [];
       const price = num(r.o.price) || basePrice;
       const mrp = Math.max(num(r.o.mrp) || num(b.mrp) || price, price);
-      const flag = r.stock || base.stock; // a colour's own yes/no, else the design's
-      const inStock = (flag === "" || yes(flag)) && (!sizes.length || available.length > 0);
+      const inStock = stocked && (!sizes.length || available.length > 0);
       const colors = r.colors.length ? r.colors : r === base ? [""] : [];
       const specific = colors.length === 1; // this row is about one colour only
       colors.forEach((c) => {
@@ -174,7 +177,9 @@
         variants.set(key, {
           color: c.trim(), key,
           images: r.images.length ? r.images : base.images,
-          price, mrp, available, inStock, specific,
+          // a colour row without photos borrows the first row's photos: say which colour they show
+          shownIn: specific && !r.images.length && r !== base && base.colors.length === 1 ? base.colors[0].trim() : "",
+          price, mrp, made, available, inStock, specific,
           madeToOrder: r.o.made_to_order ? yes(r.o.made_to_order) : yes(b.made_to_order),
           code: r.o.color_code || ""
         });
@@ -267,8 +272,8 @@
   // Sample products in the same shape as sheet products (one shared photo set for their colours)
   const samples = () => SAMPLE_PRODUCTS.map((p) => {
     const variants = (p.colors.length ? p.colors : [""]).map((c) => ({
-      color: c, key: colorKey(c), images: p.images, price: p.price, mrp: p.mrp,
-      available: p.sizes.slice(), inStock: p.inStock, specific: false, madeToOrder: false, code: ""
+      color: c, key: colorKey(c), images: p.images, shownIn: "", price: p.price, mrp: p.mrp,
+      made: p.sizes.slice(), available: p.inStock ? p.sizes.slice() : [], inStock: p.inStock, specific: false, madeToOrder: false, code: ""
     }));
     return { ...p, sizes: window.sortSizes(p.sizes), soldOutSizes: [], variants,
       details: p.fabric ? [{ label: "Fabric", value: p.fabric }] : [], sleeve: "", dupatta: "", madeToOrder: false };

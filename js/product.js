@@ -64,7 +64,9 @@
             <div class="${photoPick ? "variant-pick" : "sizes colors-pick"}" id="colors" role="radiogroup" aria-label="Colour">
               ${p.variants.map((v) => photoPick ? `
                 <button type="button" class="vp" data-key="${esc(v.key)}" role="radio" aria-label="${esc(v.color)}${v.inStock ? "" : " (sold out)"}">
-                  <span class="vp-img"><img src="${esc(thumb(v.images[0]) || PLACEHOLDER)}" alt="" loading="lazy"></span>
+                  ${v.shownIn
+                    ? `<span class="vp-img vp-dot">${swatch(v.color, v.code, "big")}</span>`
+                    : `<span class="vp-img"><img src="${esc(thumb(v.images[0]) || PLACEHOLDER)}" alt="" loading="lazy"></span>`}
                   <span class="vp-name">${esc(v.color)}</span>
                 </button>` : `
                 <button type="button" data-key="${esc(v.key)}" role="radio">${swatch(v.color, v.code)} ${esc(v.color)}</button>`).join("")}
@@ -119,6 +121,7 @@
           <button class="gal-arrow prev" data-step="-1" aria-label="Previous photo">‹</button>
           <button class="gal-arrow next" data-step="1" aria-label="Next photo">›</button>
           <span class="gal-count" id="gal-count">1 / ${images.length}</span>` : ""}
+          ${variant.shownIn ? `<span class="shown-in">Shown in ${esc(variant.shownIn)} · ${esc(variant.color)} photos coming soon</span>` : ""}
         </div>`;
     }
     function showImg(i) {
@@ -159,6 +162,10 @@
     gallery.addEventListener("mouseleave", () => { const img = $("#main-img"); if (img) img.style.transform = ""; });
     $("#lightbox").addEventListener("click", () => $("#lightbox").classList.remove("open"));
 
+    const joinAnd = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`);
+    const inColour = (v) => (multi && v.color ? ` in ${v.color}` : "");
+    const notifyLink = (v, sizes) => waLink(`Hi! Please let me know when ${p.name} (${p.id})${inColour(v)}${sizes.length ? `, size ${sizes.join("/")}` : ""} is back in stock.`);
+
     /* ---------- show everything for the chosen colour ---------- */
     const waBtn = $("#wa-order");
     function setVariant(v, { fromUser = false } = {}) {
@@ -169,7 +176,9 @@
       $("#price").innerHTML = `<strong>${money(v.price)}</strong>${off ? `<s>MRP ${money(v.mrp)}</s><span class="off">(${off}% OFF)</span>` : ""}`;
       $("#stock-notes").innerHTML =
         (v.madeToOrder ? `<p class="mto-note">${icon("info")} <span>${esc(C.madeToOrderText)}</span></p>` : "") +
-        (v.inStock ? "" : `<span class="stock-out">${multi ? `${esc(v.color)} is sold out right now. Try another colour, or message us to get notified.` : "Currently sold out. Message us to get notified when it's back."}</span>`);
+        (v.inStock ? "" : `<p class="stock-out">${multi && p.inStock
+          ? `${esc(v.color)} is sold out right now 😔 Pick another colour, or tap <strong>Notify me</strong> and we'll message you when it's back.`
+          : "This style is sold out right now 😔 Tap <strong>Notify me</strong> and we'll message you as soon as it's back."}</p>`);
 
       // colour buttons
       if ($("#colors")) {
@@ -177,7 +186,7 @@
         $("#colors").querySelectorAll("[data-key]").forEach((b) => {
           const x = p.variants.find((y) => y.key === b.dataset.key);
           b.classList.toggle("active", x === v);
-          b.classList.toggle("sold", !x.inStock);
+          b.classList.toggle("sold", multi && !x.inStock); // only mark a colour sold out when there are others to pick
           b.setAttribute("aria-checked", x === v);
         });
       }
@@ -194,11 +203,14 @@
           b.classList.toggle("active", b.dataset.size === size);
           b.setAttribute("aria-checked", b.dataset.size === size);
         });
-        const missing = p.sizes.filter((s) => !v.available.includes(s));
+        const soldOut = v.made.filter((s) => !v.available.includes(s)); // made in this colour, but run out
         const note = $("#size-note");
-        note.hidden = !(missing.length && v.inStock);
-        if (!note.hidden) {
-          note.innerHTML = `Crossed-out sizes are sold out${multi ? ` in ${esc(v.color)}` : ""}. <a href="${waLink(`Hi! Will ${p.name} (${p.id})${v.color ? ` in ${v.color}` : ""} be available in size ${missing.join("/")}?`)}" target="_blank" rel="noopener">Ask us about them</a>`;
+        note.hidden = !v.inStock || (!soldOut.length && v.made.length === p.sizes.length);
+        if (!note.hidden && soldOut.length) {
+          note.innerHTML = `<span>${soldOut.length === 1 ? "Size" : "Sizes"} <strong>${esc(joinAnd(soldOut))}</strong> ${soldOut.length === 1 ? "is" : "are"} sold out${esc(inColour(v))} 😔 Want ${soldOut.length === 1 ? "it" : "one"}? We'll let you know when it's back.</span>
+            <a class="notify-btn" href="${notifyLink(v, soldOut)}" target="_blank" rel="noopener">${icon("whatsapp")} Notify me on WhatsApp</a>`;
+        } else if (!note.hidden) {
+          note.innerHTML = `<span>${esc(v.color || "This style")} comes in ${v.made.length === 1 ? "size" : "sizes"} <strong>${esc(joinAnd(v.made))}</strong>.</span>`;
         }
         $("#size-error").hidden = true;
       }
@@ -206,7 +218,7 @@
       // buttons
       $("#add-bag").disabled = !v.inStock;
       waBtn.innerHTML = `${icon("whatsapp")} ${v.inStock ? "Buy now on WhatsApp" : "Notify me on WhatsApp"}`;
-      waBtn.href = v.inStock ? "#" : waLink(`Hi! Please notify me when ${p.name} (${p.id})${v.color ? ` in ${v.color}` : ""} is back in stock.`);
+      waBtn.href = v.inStock ? "#" : notifyLink(v, []);
 
       setPageInfo(p, v);
       if (fromUser && multi) {
