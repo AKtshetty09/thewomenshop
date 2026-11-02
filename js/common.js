@@ -616,6 +616,16 @@
     const b = e.target.closest("[data-write-review]");
     if (b) openReviewForm({ product: b.dataset.product, productName: b.dataset.productName, order: b.dataset.order });
   });
+  // Review link in the shop's "delivered" WhatsApp message: twshop.in/?review=ORDER_ID&p=TWS001
+  const reviewAsk = new URLSearchParams(location.search);
+  if (reviewAsk.has("review")) {
+    const order = reviewAsk.get("review").slice(0, 40), id = (reviewAsk.get("p") || "").slice(0, 40);
+    window.loadProducts().catch(() => []).then((products) => {
+      const p = products.find((x) => x.id === id);
+      openReviewForm({ order, product: id, productName: p ? p.name : "" });
+      track("review-link-opened");
+    });
+  }
 
   /* ---------- footer ---------- */
   function renderFooter() {

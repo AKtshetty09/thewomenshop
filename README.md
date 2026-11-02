@@ -27,7 +27,9 @@ and every hour. Each run makes a page per product (`twshop.in/p/TWS001`) from th
 links show the product photo. GitHub Pages source must be set to **GitHub Actions**.
 
 Shop Admin: twshop.in/admin lets the owner add/edit products, colours, photos and stock from a phone,
-approve customer reviews, and change the Settings tab (home banners, top bar, menu, shipping).
+approve customer reviews, change the Settings tab (home banners, top bar, menu, shipping), and
+track orders. Orders are kept in a separate private spreadsheet the script creates in the owner's
+Drive ("The Women Shop - Orders (private)"), never in the published product sheet.
 It calls a Google Apps Script attached to the product sheet: `scripts/admin-apps-script.gs`
 (deployed as a Web app; protected by the PIN set at the top of that script). Photos go to the
 Google Drive folder "The Women Shop - website photos". After editing the script: Deploy → Manage

@@ -796,6 +796,7 @@ body.adm-has-tabs .adm-save { bottom: calc(60px + env(safe-area-inset-bottom)); 
 .adm-allgood { padding: 14px; border-radius: 12px; background: #e7f8ee; color: #127a3e; text-align: center; font-weight: 600; }
 .adm-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .adm-quick .btn { padding: 12px 10px; font-size: 14px; }
+.adm-quick + p a { color: var(--primary); font-weight: 600; }
 
 /* reviews */
 .adm-reviews { display: grid; gap: 12px; }
@@ -847,6 +848,84 @@ body.adm-has-tabs .adm-save { bottom: calc(60px + env(safe-area-inset-bottom)); 
 .adm-rate { margin-bottom: 8px; }
 .adm-rate span { width: 70px; flex: none; font-size: 13.5px; }
 .adm-rate .field { flex: 0 1 140px; }
+
+/* orders */
+.adm-status.paid { background: #e8f0ff; color: #1d4ea8; }
+.adm-status.packed { background: #f1eaff; color: #5b2ca0; }
+.adm-status.shipped { background: #e3f6f7; color: #0d6b72; }
+.adm-seg { display: flex; padding: 4px; margin-bottom: 12px; border-radius: 12px; background: #efe9f1; }
+.adm-seg button { flex: 1; padding: 9px 0; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.adm-seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, .08); }
+.adm-order .adm-thumb { height: 64px; }
+.adm-order-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-order-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.adm-order-side strong { font-size: 14px; }
+.adm-order-side em { font-style: normal; font-size: 11px; font-weight: 600; color: #b26b00; }
+.adm-empty { padding: 30px 10px; }
+.adm-sheetlink { margin-top: 16px; }
+.adm-sheetlink a { color: var(--primary); font-weight: 600; }
+.adm-paste textarea { margin-bottom: 10px; }
+.adm-note[hidden] { display: none; }
+.adm-note { margin-top: 10px; }
+.adm-linkbtn { color: var(--primary); font-weight: 600; text-decoration: underline; }
+.adm-steps { display: flex; list-style: none; padding: 0; margin: 0 0 6px; }
+.adm-steps li { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; font-size: 11.5px; color: var(--muted); }
+.adm-steps li::before { content: ""; position: absolute; top: 13px; right: 50%; width: 100%; height: 2px; background: var(--line); }
+.adm-steps li:first-child::before { display: none; }
+.adm-steps li.done::before, .adm-steps li.now::before { background: var(--primary); }
+.adm-steps b { position: relative; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 2px solid var(--line); font-size: 12px; }
+.adm-steps li.done b, .adm-steps li.now b { background: var(--primary); border-color: var(--primary); color: #fff; }
+.adm-steps li.now span { color: var(--ink); font-weight: 600; }
+.adm-steps small { min-height: 14px; font-size: 10.5px; }
+.adm-steps.off { opacity: .45; }
+.adm-next { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.adm-next .btn { flex: 1; min-width: 140px; padding: 12px 16px; }
+.adm-cancel { display: block; margin: 14px 0 0 auto; }
+.adm-msgs { margin-top: 12px; }
+.adm-msgs summary, .adm-fix summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.adm-msg { display: block; margin-top: 8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; font-weight: 500; }
+.adm-msg::before { content: "💬 "; }
+.adm-fix { margin-top: 12px; }
+.adm-fix .field { margin-top: 8px; }
+.adm-hint { margin: 6px 0; font-size: 12.5px; color: #8a5a00; }
+.adm-hint:empty { display: none; }
+.adm-contact { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.adm-stockcard { border-color: #f0b840; background: #fffcf3; }
+.adm-oitem { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.adm-thumb.sm { width: 46px; height: 58px; border-radius: 8px; }
+.adm-oitem-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-oitem-main strong { font-size: 14px; font-weight: 600; }
+.adm-oitem-main small { font-size: 12px; color: var(--muted); }
+.adm-oitem-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.adm-qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; }
+.adm-qty button { width: 34px; height: 34px; font-size: 18px; color: var(--ink-2); }
+.adm-qty b { min-width: 22px; text-align: center; font-size: 14px; }
+.adm-price { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--muted); }
+.adm-price .field { width: 96px; padding: 8px 10px; }
+.adm-oitem-row .adm-icon { margin-left: auto; }
+.adm-additem { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.adm-additem select { flex: 1 1 140px; width: auto; }
+.adm-additem select:first-child { flex-basis: 100%; }
+.adm-totals { padding-top: 10px; border-top: 1px dashed var(--line); }
+.adm-totals > div { display: flex; align-items: center; justify-content: space-between; min-height: 42px; font-size: 14px; }
+.adm-total { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 16px !important; }
+.adm-total strong { font-size: 20px; }
+.adm-month { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.adm-month strong { font-family: var(--font-display); font-size: 22px; }
+.adm-month .adm-icon { width: 40px; font-size: 18px; }
+.adm-month .adm-icon:disabled { opacity: .3; }
+.adm-rank { list-style: none; padding: 0; margin: 0; }
+.adm-rank li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.adm-rank li:last-child { border-bottom: 0; }
+.adm-rank li > span:not(.adm-thumb) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.adm-rank small { color: var(--muted); font-size: 11.5px; }
+.adm-rank b { flex: none; font-size: 13px; }
+.adm-bars { display: grid; gap: 8px; }
+.adm-bars div { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); }
+.adm-bars i { height: 12px; min-width: 3px; border-radius: 6px; background: #f3c3d5; }
+.adm-bars div.on i { background: var(--primary); }
+.adm-bars div.on { color: var(--ink); font-weight: 600; }
+.adm-bars b { font-weight: 600; color: var(--ink); }
 @media (min-width: 600px) {
   .adm-prev-text small, .adm-prev-text p, .adm-prev-text span { font-size: 8.5px; }
   .adm-prev-text strong { font-size: 17px; }

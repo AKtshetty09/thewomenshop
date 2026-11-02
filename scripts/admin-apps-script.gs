@@ -21,6 +21,11 @@ const SETTINGS_TAB = "Settings";     // tab with "setting | value" rows (banners
 // The customer reviews sheet ("Review The Women Shop") and its responses tab (gid in its link)
 const REVIEWS_SHEET_ID = "1HKFfyF-iKtwHdCEFOf0pgAdcpkifh3uJfflbz8UjL0g";
 const REVIEWS_TAB_ID = 1123841563;
+// Orders live in their own private spreadsheet in your Google Drive (made by this script on the first order)
+const ORDERS_FILE = "The Women Shop - Orders (private)";
+const ORDER_COLUMNS = ["Order ID", "Date", "Status", "Name", "Phone", "City", "Address", "Pincode", "Items", "Item count",
+  "Products total", "Shipping", "Discount", "Total", "Payment ref", "Courier", "Tracking", "Tracking link", "Notes",
+  "Paid on", "Packed on", "Shipped on", "Delivered on", "Cancelled on", "Stock done", "Updated", "Items data"];
 
 // Columns the admin fills in (missing ones are added at the end of the sheet)
 const COLUMNS = ["id", "name", "category", "price", "mrp", "sizes", "sold_out_sizes", "colors", "color_code",
@@ -45,12 +50,16 @@ function doPost(e) {
     const lock = LockService.getScriptLock(); // one change to the sheet at a time
     lock.waitLock(30000);
     try {
-      if (req.action === "load") return reply({ ok: true, products: readSheet(), reviews: tryRead(readReviews), settings: readSettings() });
+      if (req.action === "load") {
+        return reply({ ok: true, products: readSheet(), reviews: tryRead(readReviews), settings: readSettings(), orders: tryRead(readOrders) });
+      }
       if (req.action === "list") return reply(Object.assign({ ok: true }, readSheet()));
       if (req.action === "saveSettings") return reply(Object.assign({ ok: true }, saveSettings(req.values)));
       if (req.action === "review") return reply(Object.assign({ ok: true }, updateReview(req)));
       if (req.action === "save") return reply(Object.assign({ ok: true }, saveDesign(req.design)));
       if (req.action === "delete") return reply(Object.assign({ ok: true }, deleteDesign(req.id)));
+      if (req.action === "saveOrder") return reply(Object.assign({ ok: true }, saveOrder(req)));
+      if (req.action === "deleteOrder") return reply(Object.assign({ ok: true }, deleteOrder(req)));
       return reply({ ok: false, error: "Unknown action" });
     } finally {
       lock.releaseLock();
@@ -302,4 +311,102 @@ function updateReview(req) {
   if (req.show !== undefined) sh.getRange(row, map.show, 1, 1).setValues([[req.show]]);
   if (req.photo !== undefined) sh.getRange(row, map.photo, 1, 1).setValues([[req.photo]]);
   return { updated: true };
+}
+
+/* ---------- Orders (a private spreadsheet: one row per order) ---------- */
+// Finds the orders spreadsheet (or makes it when create is true). Returns { book, sh } or null.
+function ordersSheet(create) {
+  const props = PropertiesService.getScriptProperties();
+  const saved = props.getProperty("ORDERS_SHEET_ID");
+  let book = null;
+  if (saved) {
+    try { if (!DriveApp.getFileById(saved).isTrashed()) book = SpreadsheetApp.openById(saved); } catch (err) { book = null; }
+  }
+  if (!book) {
+    const files = DriveApp.getFilesByName(ORDERS_FILE);
+    while (!book && files.hasNext()) {
+      const f = files.next();
+      if (!f.isTrashed()) book = SpreadsheetApp.openById(f.getId());
+    }
+  }
+  if (!book && create) {
+    book = SpreadsheetApp.create(ORDERS_FILE);
+    const first = book.getSheets()[0];
+    first.setName("Orders");
+    first.getRange(1, 1, 1, ORDER_COLUMNS.length).setValues([ORDER_COLUMNS]);
+    first.setFrozenRows(1);
+  }
+  if (!book) return null;
+  if (book.getId() !== saved) props.setProperty("ORDERS_SHEET_ID", book.getId());
+  return { book, sh: book.getSheetByName("Orders") || book.getSheets()[0] };
+}
+
+function readOrders() {
+  const o = ordersSheet(false);
+  if (!o) return { headers: ORDER_COLUMNS, rows: [], url: "" };
+  const rows = o.sh.getLastRow(), cols = o.sh.getLastColumn();
+  const values = rows && cols ? o.sh.getRange(1, 1, rows, cols).getDisplayValues() : [[]];
+  return { headers: values[0] || [], rows: values.slice(1).map((cells, i) => ({ row: i + 2, cells })), url: o.book.getUrl() };
+}
+
+// Finds an order's row by its Order ID. Returns { sh, map, width, row, cells }.
+function findOrder(id, create) {
+  const o = ordersSheet(create);
+  if (!o) throw new Error("There are no orders yet.");
+  const { map, width } = ensureColumns(o.sh, ORDER_COLUMNS.map(keyOf));
+  const last = o.sh.getLastRow();
+  const ids = last > 1 ? o.sh.getRange(2, map.order_id, last - 1, 1).getDisplayValues().map((r) => String(r[0]).trim().toUpperCase()) : [];
+  const at = ids.indexOf(id);
+  return { sh: o.sh, url: o.book.getUrl(), map, width, last, row: at >= 0 ? at + 2 : 0, cells: at >= 0 ? o.sh.getRange(at + 2, 1, 1, width).getDisplayValues()[0] : null };
+}
+
+// Stops two phones (or the sheet and a phone) from overwriting each other's changes
+function checkUpdated(f, updated) {
+  if (updated !== undefined && String(f.cells[f.map.updated - 1]) !== String(updated)) {
+    throw new Error("This order was changed on another phone or in the sheet. Please reload and try again.");
+  }
+}
+
+/**
+ * req = { order: { order_id, status, name, phone, … }, isNew: true|false, updated: the "Updated" value it was loaded with }
+ * The script fills in the "… on" dates when the status changes, and "Updated".
+ */
+function saveOrder(req) {
+  const o = req.order || {};
+  const id = String(o.order_id || "").trim().toUpperCase();
+  if (!/^[A-Z0-9-]{3,30}$/.test(id)) throw new Error("The Order ID can only have letters, numbers and -");
+  const f = findOrder(id, true);
+  let row = f.row;
+  let values;
+  if (req.isNew) {
+    if (row) throw new Error("Order " + id + " is already saved. Find it in Orders.");
+    row = f.last + 1;
+    values = new Array(f.width).fill("");
+  } else {
+    if (!row) throw new Error("Order " + id + " isn't in the orders sheet any more. Please reload.");
+    checkUpdated(f, req.updated);
+    values = f.cells.slice();
+  }
+  const now = Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyy-MM-dd HH:mm:ss");
+  const managed = ["order_id", "paid_on", "packed_on", "shipped_on", "delivered_on", "cancelled_on", "updated"];
+  Object.keys(o).forEach((k) => {
+    if (f.map[k] && managed.indexOf(k) < 0) values[f.map[k] - 1] = o[k] === null || o[k] === undefined ? "" : String(o[k]);
+  });
+  values[f.map.order_id - 1] = id;
+  const stamp = { paid: "paid_on", packed: "packed_on", shipped: "shipped_on", delivered: "delivered_on", cancelled: "cancelled_on" }[keyOf(o.status)];
+  if (stamp && !values[f.map[stamp] - 1]) values[f.map[stamp] - 1] = now.slice(0, 16);
+  if (!values[f.map.date - 1]) values[f.map.date - 1] = now.slice(0, 16);
+  values[f.map.updated - 1] = now;
+  // plain text, so Sheets keeps phone numbers, pincodes and dates exactly as typed
+  f.sh.getRange(row, 1, 1, f.width).setNumberFormat("@").setValues([values]);
+  return { url: f.url, order: { headers: f.sh.getRange(1, 1, 1, f.width).getDisplayValues()[0], row, cells: values } };
+}
+
+function deleteOrder(req) {
+  const id = String(req.id || "").trim().toUpperCase();
+  const f = findOrder(id, false);
+  if (!f.row) throw new Error("Order " + id + " isn't in the orders sheet any more. Please reload.");
+  checkUpdated(f, req.updated);
+  f.sh.deleteRow(f.row);
+  return { deleted: id };
 }
