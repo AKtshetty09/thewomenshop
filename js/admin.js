@@ -1034,11 +1034,13 @@
         <h2>Quick actions</h2>
         <div class="adm-quick">
           <button type="button" class="btn" data-quick="order">+ New order</button>
+          <a class="btn" href="paylink" target="_blank" rel="noopener">💳 Payment link</a>
           <button type="button" class="btn btn-outline" data-quick="add">+ Add product</button>
           <a class="btn btn-outline" href="index.html" target="_blank" rel="noopener">View website</a>
-          <a class="btn btn-outline" href="https://cloud.umami.is" target="_blank" rel="noopener">Visitor stats</a>
+          <a class="btn btn-outline adm-quick-wide" href="https://cloud.umami.is" target="_blank" rel="noopener">Visitor stats</a>
         </div>
-        <p class="muted small">Changes show on the website within about 5 minutes of saving. A payment link without saving an order: <a href="paylink" target="_blank" rel="noopener">payment link tool</a>.</p>
+        <p class="muted small"><strong>Payment link</strong> is for a quick payment without saving an order. For a saved order, open it in Orders and tap <strong>Send "Payment link"</strong>, so it counts in your sales.</p>
+        <p class="muted small">Changes show on the website within about 5 minutes of saving.</p>
       </section>`;
   }
 
