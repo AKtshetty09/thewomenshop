@@ -17,6 +17,10 @@ const ADMIN_PIN = "CHANGE-ME";       // your secret PIN: at least 6 letters/numb
 const PRODUCT_TAB_ID = 0;            // the Product tab (gid=0 in its link)
 const PHOTO_FOLDER = "The Women Shop - website photos";
 const ID_PREFIX = "TWS";             // new products get TWS004, TWS005…
+const SETTINGS_TAB = "Settings";     // tab with "setting | value" rows (banners, top bar, shipping…)
+// The customer reviews sheet ("Review The Women Shop") and its responses tab (gid in its link)
+const REVIEWS_SHEET_ID = "1HKFfyF-iKtwHdCEFOf0pgAdcpkifh3uJfflbz8UjL0g";
+const REVIEWS_TAB_ID = 1123841563;
 
 // Columns the admin fills in (missing ones are added at the end of the sheet)
 const COLUMNS = ["id", "name", "category", "price", "mrp", "sizes", "sold_out_sizes", "colors", "color_code",
@@ -41,7 +45,10 @@ function doPost(e) {
     const lock = LockService.getScriptLock(); // one change to the sheet at a time
     lock.waitLock(30000);
     try {
+      if (req.action === "load") return reply({ ok: true, products: readSheet(), reviews: tryRead(readReviews), settings: readSettings() });
       if (req.action === "list") return reply(Object.assign({ ok: true }, readSheet()));
+      if (req.action === "saveSettings") return reply(Object.assign({ ok: true }, saveSettings(req.values)));
+      if (req.action === "review") return reply(Object.assign({ ok: true }, updateReview(req)));
       if (req.action === "save") return reply(Object.assign({ ok: true }, saveDesign(req.design)));
       if (req.action === "delete") return reply(Object.assign({ ok: true }, deleteDesign(req.id)));
       return reply({ ok: false, error: "Unknown action" });
@@ -212,4 +219,87 @@ function savePhoto(req) {
   const file = folder.createFile(Utilities.newBlob(bytes, "image/jpeg", name));
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return "https://drive.google.com/file/d/" + file.getId() + "/view";
+}
+
+/* ---------- Settings tab: "setting | value | what it does" ---------- */
+function settingsSheet() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(SETTINGS_TAB) || ss.getSheets().filter((x) => keyOf(x.getName()) === "settings")[0];
+  if (sh) return sh;
+  const made = ss.insertSheet(SETTINGS_TAB);
+  made.getRange(1, 1, 1, 3).setValues([["Setting", "Value", "What it does"]]);
+  return made;
+}
+
+function readSettings() {
+  const sh = settingsSheet();
+  const rows = sh.getLastRow();
+  if (rows < 2) return { rows: [] };
+  return { rows: sh.getRange(2, 1, rows - 1, 2).getDisplayValues().map((r, i) => ({ row: i + 2, label: r[0], value: r[1] })).filter((r) => r.label) };
+}
+
+// values: { "banner 1 image": "https://…", "announcement 3": "", "shipping 4 items": null, … }
+// "" saves an empty value (e.g. a removed top bar message); null empties a setting only if it's already there
+function saveSettings(values) {
+  if (!values || typeof values !== "object") throw new Error("Nothing to save");
+  const sh = settingsSheet();
+  const last = Math.max(sh.getLastRow(), 1);
+  const labels = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map((r) => keyOf(r[0])) : [];
+  let added = 0;
+  Object.keys(values).forEach((label) => {
+    const skip = values[label] === null || values[label] === undefined;
+    const value = skip ? "" : String(values[label]);
+    const i = labels.indexOf(keyOf(label));
+    if (i >= 0) {
+      // plain text, so Sheets doesn't turn something like "10-12 days" into a date
+      sh.getRange(i + 2, 2, 1, 1).setNumberFormat("@").setValues([[value]]);
+    } else if (!skip) {
+      sh.getRange(last + 1 + added, 1, 1, 2).setNumberFormat("@").setValues([[label, value]]);
+      labels.push(keyOf(label));
+      added++;
+    }
+  });
+  return { saved: Object.keys(values).length };
+}
+
+/* ---------- Customer reviews (the form's responses sheet) ---------- */
+function reviewsSheet() {
+  const ss = SpreadsheetApp.openById(REVIEWS_SHEET_ID);
+  const sheets = ss.getSheets();
+  return sheets.filter((x) => x.getSheetId() === REVIEWS_TAB_ID)[0] || sheets[0];
+}
+
+function readReviews() {
+  const sh = reviewsSheet();
+  const rows = sh.getLastRow(), cols = sh.getLastColumn();
+  const values = rows && cols ? sh.getRange(1, 1, rows, cols).getDisplayValues() : [[]];
+  return { headers: values[0] || [], rows: values.slice(1).map((cells, i) => ({ row: i + 2, cells })) };
+}
+
+// A problem with the reviews sheet shouldn't stop the rest of the admin from loading
+function tryRead(fn) {
+  try { return fn(); } catch (err) { return { error: String((err && err.message) || err) }; }
+}
+
+/**
+ * req = { row, stamp (the review's Timestamp, to be sure it's the same review),
+ *         show: "yes" | "no" | "" (optional), photo: url or "" (optional), remove: true (optional) }
+ */
+function updateReview(req) {
+  const sh = reviewsSheet();
+  const { map, width } = ensureColumns(sh, ["show", "photo"]);
+  const row = Number(req.row);
+  if (!(row >= 2) || row > sh.getLastRow()) throw new Error("That review isn't there any more. Please reload.");
+  const cells = sh.getRange(row, 1, 1, width).getDisplayValues()[0];
+  const stampCol = map.timestamp || 1;
+  if (String(cells[stampCol - 1]) !== String(req.stamp || "")) {
+    throw new Error("The reviews changed while you were looking. Please reload and try again.");
+  }
+  if (req.remove) {
+    sh.deleteRow(row);
+    return { removed: true };
+  }
+  if (req.show !== undefined) sh.getRange(row, map.show, 1, 1).setValues([[req.show]]);
+  if (req.photo !== undefined) sh.getRange(row, map.photo, 1, 1).setValues([[req.photo]]);
+  return { updated: true };
 }

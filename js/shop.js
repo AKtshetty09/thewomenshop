@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, productCard, discount, swatch } = window.TWS;
+  const { esc, icon, productCard, discount, swatch, settingsReady } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
   const params = new URLSearchParams(location.search);
@@ -36,7 +36,7 @@
 
   $("#results").innerHTML = Array.from({ length: 8 }, () => '<div class="skeleton"></div>').join("");
 
-  window.loadProducts().then((products) => {
+  Promise.all([window.loadProducts(), settingsReady]).then(([products]) => {
     /* ---------- filter options found in the sheet ---------- */
     const cats = [...new Set([...C.categories, ...products.map((p) => p.category)])];
     // first spelling seen for each size / colour / fabric / sleeve

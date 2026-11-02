@@ -13,9 +13,9 @@
     <div class="slide ${i ? "" : "active"}">
       <img src="${esc(s.image)}" alt="" style="object-position:${esc(s.focus || "center")}" ${i ? 'loading="lazy"' : ""}>
       <div class="slide-content container">
-        <span class="eyebrow">${esc(s.eyebrow)}</span>
+        ${s.eyebrow ? `<span class="eyebrow">${esc(s.eyebrow)}</span>` : ""}
         <h1>${s.title}</h1>
-        <p>${esc(s.text)}</p>
+        ${s.text ? `<p>${esc(s.text)}</p>` : ""}
         <a class="btn" href="${esc(s.link)}">${esc(s.button)}</a>
       </div>
     </div>`).join(""));
@@ -54,6 +54,12 @@
   // pause while the mouse is over the banner
   hero.addEventListener("mouseenter", () => clearInterval(timer));
   hero.addEventListener("mouseleave", () => go(current));
+  // just one banner: nothing to slide
+  if (slides.length < 2) {
+    dots.hidden = true;
+    hero.querySelectorAll(".hero-arrow").forEach((b) => (b.hidden = true));
+    return;
+  }
   go(0);
   }
 
@@ -71,7 +77,7 @@
   $("#new-arrivals").innerHTML = skeletons(5);
   $("#bestsellers").innerHTML = skeletons(4);
 
-  window.loadProducts().then((products) => {
+  Promise.all([window.loadProducts(), settingsReady]).then(([products]) => {
     const inStockFirst = (a, b) => b.inStock - a.inStock;
 
     /* categories: picture = first product in that category */

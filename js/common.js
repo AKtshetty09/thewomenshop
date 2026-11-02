@@ -320,10 +320,27 @@
   });
 
   /* ---------- header ---------- */
+  const catLinks = () => C.categories.map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}" data-cat-link>${esc(c)}</a>`).join("");
+  const footerCatLinks = () => C.categories.slice(0, 5).map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}" data-cat-link>${esc(c)}</a>`).join("");
+  // Menu categories can come from the Settings tab: redraw the links once it has loaded
+  function redrawCategoryLinks() {
+    const swap = (box, html) => {
+      if (!box) return;
+      box.querySelectorAll("[data-cat-link]").forEach((a, i) => { if (i) a.remove(); });
+      const first = box.querySelector("[data-cat-link]");
+      if (first) first.outerHTML = html || "";
+      else box.insertAdjacentHTML("beforeend", html);
+    };
+    swap(document.querySelector(".main-nav"), catLinks());
+    swap(document.querySelector(".mobile-nav"), catLinks());
+    swap(document.querySelector(".f-col"), footerCatLinks());
+    const here = location.pathname.split("/").pop() + location.search;
+    document.querySelectorAll(".main-nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === here));
+  }
+
   function renderHeader() {
     const el = document.getElementById("site-header");
     if (!el) return;
-    const catLinks = C.categories.map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}">${esc(c)}</a>`).join("");
     el.outerHTML = `
       <div class="announce"><div class="announce-track" id="announce-track">${C.announcements.map(announceItem).join("")}</div></div>
       <header class="site-header">
@@ -332,7 +349,7 @@
           ${logoHtml()}
           <nav class="main-nav" aria-label="Main">
             <a href="shop.html?tag=new" class="nav-new">New In</a>
-            ${catLinks}
+            ${catLinks()}
           </nav>
           <form class="search" action="shop.html" role="search">
             ${icon("search")}
@@ -353,7 +370,7 @@
           <a href="index.html">Home</a>
           <a href="shop.html?tag=new">New In</a>
           <a href="shop.html">Shop All</a>
-          ${catLinks}
+          ${catLinks()}
           <a href="wishlist.html">My Wishlist</a>
           <a href="orders.html">My Orders</a>
           <a href="policies.html">About &amp; Policies</a>
@@ -621,7 +638,7 @@
             <summary><h4>Shop</h4></summary>
             <a href="shop.html?tag=new">New Arrivals</a>
             <a href="shop.html?tag=bestseller">Bestsellers</a>
-            ${C.categories.slice(0, 5).map((c) => `<a href="shop.html?cat=${encodeURIComponent(c)}">${esc(c)}</a>`).join("")}
+            ${footerCatLinks()}
           </details>
           <details class="f-col" open>
             <summary><h4>Help</h4></summary>
@@ -673,23 +690,33 @@
     if (s.instagram_followers) C.instagramFollowers = s.instagram_followers.replace(/\+$/, "");
     if (s.shipping_time) C.shippingTime = s.shipping_time;
     // "shipping 1 item", "shipping 2 items", "shipping 3 items"…
-    const rates = Object.keys(s).map((k) => k.match(/^shipping_(\d+)_items?$/)).filter(Boolean)
+    const rates = Object.keys(s).filter((k) => s[k] !== "").map((k) => k.match(/^shipping_(\d+)_items?$/)).filter(Boolean)
       .sort((a, b) => a[1] - b[1]).map((m) => Number(String(s[m[0]]).replace(/[^\d.]/g, "")));
     if (rates.length && rates.every((r) => r >= 0)) C.shippingRates = rates;
     if (s.made_to_order_text) C.madeToOrderText = s.made_to_order_text;
-    C.announcements.forEach((a, i) => {
-      const text = s[`announcement_${i + 1}`];
-      if (text) C.announcements[i] = typeof a === "string" ? text : { ...a, text };
-    });
+    if (s.menu_categories) C.categories = s.menu_categories.split(",").map((c) => c.trim()).filter(Boolean);
+    // top bar: an emptied message is removed
+    C.announcements = C.announcements.map((a, i) => {
+      const k = `announcement_${i + 1}`;
+      if (!(k in s)) return a;
+      return typeof a === "string" ? s[k] : { ...a, text: s[k] };
+    }).filter((a) => (typeof a === "string" ? a : a.text));
+    // banners: "banner count" sets how many (1-5); missing ones start from the first banner's look
+    const count = Math.min(5, Math.max(0, parseInt(s.banner_count, 10) || 0));
+    if (count) C.heroSlides = Array.from({ length: count }, (_, i) => ({ ...(C.heroSlides[i] || C.heroSlides[0]) }));
+    const FOCUS = { top: "center 15%", middle: "center", centre: "center", center: "center", bottom: "center 85%" };
     C.heroSlides.forEach((slide, i) => {
       const get = (k) => s[`banner_${i + 1}_${k}`];
+      const has = (k) => `banner_${i + 1}_${k}` in s;
       if (get("image")) slide.image = window.toImageUrl(get("image"));
       // *word* in the heading is shown in pink italics
       if (get("heading")) slide.title = esc(get("heading")).replace(/\*(.+?)\*/g, "<em>$1</em>");
-      if (get("small_text")) slide.eyebrow = get("small_text");
-      if (get("text")) slide.text = get("text");
+      // small text and the line under the heading can be left empty on purpose
+      if (has("small_text")) slide.eyebrow = get("small_text");
+      if (has("text")) slide.text = get("text");
       if (get("button")) slide.button = get("button");
       if (get("shows")) slide.link = bannerLink(get("shows"));
+      if (get("focus")) slide.focus = FOCUS[get("focus").toLowerCase()] || get("focus");
     });
   }
 
@@ -698,7 +725,12 @@
     document.querySelectorAll("[data-shipping]").forEach((el) => (el.textContent = C.shippingTime));
     document.querySelectorAll("[data-shipping-rates]").forEach((el) => (el.textContent = shippingLine()));
     const track = document.getElementById("announce-track");
-    if (track) track.innerHTML = C.announcements.map(announceItem).join("");
+    if (track) {
+      track.innerHTML = C.announcements.map(announceItem).join("");
+      track.dataset.count = C.announcements.length; // animation for 1, 2 or 3 messages
+      track.closest(".announce").hidden = !C.announcements.length;
+    }
+    redrawCategoryLinks();
   }
 
   // Resolves once the Settings tab is applied (or after 2.5s, so a slow sheet never blocks the page)

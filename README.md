@@ -26,7 +26,8 @@ Publishing: `.github/workflows/deploy.yml` publishes the site to GitHub Pages on
 and every hour. Each run makes a page per product (`twshop.in/p/TWS001`) from the sheet, so shared
 links show the product photo. GitHub Pages source must be set to **GitHub Actions**.
 
-Shop Admin: twshop.in/admin lets the owner add/edit products, colours, photos and stock from a phone.
+Shop Admin: twshop.in/admin lets the owner add/edit products, colours, photos and stock from a phone,
+approve customer reviews, and change the Settings tab (home banners, top bar, menu, shipping).
 It calls a Google Apps Script attached to the product sheet: `scripts/admin-apps-script.gs`
 (deployed as a Web app; protected by the PIN set at the top of that script). Photos go to the
 Google Drive folder "The Women Shop - website photos". After editing the script: Deploy → Manage

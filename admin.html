@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=20261102d">
+  <link rel="stylesheet" href="css/style.css?v=20261102e">
 </head>
 <body class="adm">
   <header class="adm-bar">
@@ -22,10 +22,21 @@
 
   <main class="adm-main" id="admin"></main>
 
+  <nav class="adm-tabs" id="tabs" hidden aria-label="Admin sections">
+    <button type="button" data-tab="home">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+    <button type="button" data-tab="products">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 3 4 2-2 4-2-1v10H8V11l-2 1-2-4 4-2z"/></svg>Products</button>
+    <button type="button" data-tab="reviews">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>Reviews<b id="tab-badge" hidden></b></button>
+    <button type="button" data-tab="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings</button>
+  </nav>
+
   <div class="toast" id="adm-toast"></div>
 
-  <script src="js/config.js?v=20261102d"></script>
-  <script src="js/data.js?v=20261102d"></script>
-  <script src="js/admin.js?v=20261102d"></script>
+  <script src="js/config.js?v=20261102e"></script>
+  <script src="js/data.js?v=20261102e"></script>
+  <script src="js/admin.js?v=20261102e"></script>
 </body>
 </html>
