@@ -24,6 +24,9 @@
   let reviews = { list: [], error: "" }; // customer reviews
   let settingsMap = {};  // Settings tab: { key: value }
   let cfg = null;        // the shop settings being edited
+  let orders = { list: [], url: "", error: "" }; // customer orders (private sheet)
+  let order = null;      // the order on the order screen
+  let loadedAt = 0;      // when everything was last read from the sheets
 
   function toast(msg) {
     const t = $("#adm-toast");
@@ -145,6 +148,7 @@
     setTabs("products");
     editing = null;
     cfg = null;
+    order = null;
     dirty = false;
     app.innerHTML = `
       <div class="adm-head">
@@ -211,6 +215,7 @@
   function showEdit(d) {
     setTabs(null);
     cfg = null;
+    order = null;
     editing = d ? JSON.parse(JSON.stringify(d)) : {
       id: "", name: "", category: C.categories[0] || "", price: "", mrp: "", sizes: ["S", "M", "L", "XL", "XXL"],
       description: "", fabric: "", lining: "", length: "", sleeve_type: "", dupatta: "", bottom: "", other_details: "",
@@ -459,6 +464,20 @@
     return false;
   }
 
+  // A product in the shape the script's "save" expects
+  const designPayload = (d) => ({
+    id: d.id, name: d.name.trim(), category: d.category, price: d.price, mrp: d.mrp, sizes: d.sizes,
+    description: d.description, fabric: d.fabric, lining: d.lining, length: d.length, sleeve_type: d.sleeve_type,
+    dupatta: d.dupatta, bottom: d.bottom, other_details: d.other_details, tag: d.tag,
+    featured: d.featured, made_to_order: d.made_to_order, hidden: d.hidden,
+    colours: d.colours.map((c) => ({
+      row: c.row, color: c.color.trim(), color_code: c.color_code,
+      images: c.images.map((im) => im.url).filter(Boolean),
+      sold_out: c.sold_out.filter((s) => d.sizes.includes(s)),
+      in_stock: c.in_stock, price: c.price
+    }))
+  });
+
   async function save() {
     const d = editing;
     const names = d.colours.map((c) => c.color.trim().toLowerCase());
@@ -472,18 +491,7 @@
     if (photos.some((im) => im.error)) return fail("Some photos didn't upload. Tap Retry on them, or remove them.");
     if (!photos.length) return fail("Please add at least one photo.");
 
-    const design = {
-      id: d.id, name: d.name.trim(), category: d.category, price: d.price, mrp: d.mrp, sizes: d.sizes,
-      description: d.description, fabric: d.fabric, lining: d.lining, length: d.length, sleeve_type: d.sleeve_type,
-      dupatta: d.dupatta, bottom: d.bottom, other_details: d.other_details, tag: d.tag,
-      featured: d.featured, made_to_order: d.made_to_order, hidden: d.hidden,
-      colours: d.colours.map((c) => ({
-        row: c.row, color: c.color.trim(), color_code: c.color_code,
-        images: c.images.map((im) => im.url).filter(Boolean),
-        sold_out: c.sold_out.filter((s) => d.sizes.includes(s)),
-        in_stock: c.in_stock, price: c.price
-      }))
-    };
+    const design = designPayload(d);
     const btn = $("#save");
     btn.disabled = true;
     btn.textContent = "Saving…";
@@ -517,12 +525,14 @@
   /* =========================================================
      Loading everything, and the bottom tabs
      ========================================================= */
-  // Reads products, reviews and settings in one go. Returns false (and shows why) if it failed.
+  // Reads products, reviews, settings and orders in one go. Returns false (and shows why) if it failed.
   async function refresh() {
     try {
       const j = await call("load");
       designs = toDesigns(j.products.headers, j.products.rows);
       reviews = toReviews(j.reviews);
+      orders = toOrders(j.orders);
+      loadedAt = Date.now();
       settingsMap = {};
       (j.settings.rows || []).forEach((r) => { settingsMap[keyOf(r.label)] = r.value; });
       return true;
@@ -535,6 +545,14 @@
     }
   }
 
+  // Coming back to the admin after 5+ minutes: read the sheets again (only on list screens, never mid-edit)
+  document.addEventListener("visibilitychange", async () => {
+    if (document.hidden || !auth.pin || !loadedAt || Date.now() - loadedAt < 5 * 60 * 1000 || dirty) return;
+    const on = $("#tabs").hidden ? null : $("#tabs .on");
+    const show = on && { home: showDashboard, products: () => showList(), orders: showOrders, reviews: showReviews }[on.dataset.tab];
+    if (show && (await refresh())) show();
+  });
+
   async function start() {
     $("#logout").hidden = false;
     setTabs(null);
@@ -542,7 +560,7 @@
     if (await refresh()) showDashboard();
   }
 
-  // active: "home" | "products" | "reviews" | "settings", or null to hide the tabs
+  // active: "home" | "products" | "orders" | "reviews" | "settings", or null to hide the tabs
   function setTabs(active) {
     const tabs = $("#tabs");
     tabs.hidden = !active;
@@ -551,6 +569,9 @@
     const waiting = reviews.list.filter((r) => !r.show).length;
     $("#tab-badge").textContent = waiting;
     $("#tab-badge").hidden = !waiting;
+    const toShip = orders.list.filter((o) => o.status === "paid" || o.status === "packed").length;
+    $("#tab-badge-orders").textContent = toShip;
+    $("#tab-badge-orders").hidden = !toShip;
   }
 
   $("#tabs").addEventListener("click", (e) => {
@@ -558,7 +579,7 @@
     if (!b) return;
     if (dirty && !confirm("Leave without saving your changes?")) return;
     dirty = false;
-    ({ home: showDashboard, products: () => showList(), reviews: showReviews, settings: showSettings })[b.dataset.tab]();
+    ({ home: showDashboard, products: () => showList(), orders: showOrders, reviews: showReviews, settings: showSettings })[b.dataset.tab]();
     window.scrollTo(0, 0);
   });
 
@@ -571,14 +592,26 @@
     setTabs("home");
     editing = null;
     cfg = null;
+    order = null;
     const shown = designs.filter((d) => !d.hidden);
     const colours = shown.flatMap((d) => d.colours.map((c) => ({ d, c })));
     const soldOut = colours.filter(({ d, c }) => !c.in_stock || (d.sizes.length && c.sold_out.length >= d.sizes.length));
     const noPhotos = colours.filter(({ c }) => !c.images.length);
     const waiting = reviews.list.filter((r) => !r.show);
+    const toShip = orders.list.filter((o) => o.status === "paid" || o.status === "packed");
+    const unpaid = orders.list.filter((o) => o.status === "new");
+    const thisMonth = monthOf(stampOf(new Date()));
+    const monthSales = orders.list.filter((o) => monthOf(o.date) === thisMonth && SOLD.includes(o.status)).reduce((n, o) => n + salesOf(o), 0);
 
     // things to fix, most important first
     const todo = [];
+    if (orders.error) todo.push({ kind: "bad", text: `Orders couldn't load: ${orders.error}`, go: "orders" });
+    toShip.filter((o) => daysSince(o.paid_on || o.date) >= 2)
+      .forEach((o) => todo.push({ kind: "warn", text: `${o.name} paid ${daysSince(o.paid_on || o.date)} days ago. Not shipped yet (${o.id})`, order: o.id }));
+    unpaid.filter((o) => daysSince(o.date) >= 2)
+      .forEach((o) => todo.push({ kind: "info", text: `${o.name} hasn't paid for ${daysSince(o.date)} days. Remind or cancel (${o.id})`, order: o.id }));
+    orders.list.filter((o) => o.status === "shipped" && daysSince(o.shipped_on) >= 10)
+      .forEach((o) => todo.push({ kind: "tip", text: `${o.name}'s order was shipped ${daysSince(o.shipped_on)} days ago. Delivered? (${o.id})`, order: o.id }));
     if (reviews.error) todo.push({ kind: "bad", text: `Reviews couldn't load: ${reviews.error}`, go: "reviews" });
     if (waiting.length) todo.push({ kind: "info", text: `${waiting.length} customer review${waiting.length === 1 ? " is" : "s are"} waiting for approval`, go: "reviews" });
     noPhotos.forEach(({ d, c }) => todo.push({ kind: "warn", text: `${d.id} · ${c.color || d.name} has no photos of its own`, id: d.id }));
@@ -596,8 +629,11 @@
       <h1 class="adm-h1">Hello! 👋</h1>
       <p class="muted">Here's your shop today.</p>
       <div class="adm-stats">
-        ${stat(shown.length, "products on the website", "products")}
+        ${stat(toShip.length, "orders to pack &amp; ship", "orders-ship", toShip.length ? "hot" : "")}
+        ${stat(unpaid.length, "awaiting payment", "orders-new")}
+        ${stat(money(monthSales), `sales in ${MONTHS[new Date().getMonth()]}`, "sales")}
         ${stat(waiting.length, "reviews waiting", "reviews", waiting.length ? "hot" : "")}
+        ${stat(shown.length, "products on the website", "products")}
         ${stat(soldOut.length, "colours sold out", "products", soldOut.length ? "warn" : "")}
         ${stat(noPhotos.length, "colours without photos", "products", noPhotos.length ? "warn" : "")}
         ${stat(designs.length - shown.length, "hidden drafts", "products")}
@@ -606,7 +642,7 @@
       <section class="adm-card">
         <h2>Needs attention ${todo.length ? `<small>${todo.length}</small>` : ""}</h2>
         ${todo.length ? `<ul class="adm-todo">${todo.slice(0, LIMIT).map((t) => `
-          <li><button type="button" class="${t.kind}" ${t.id ? `data-open="${esc(t.id)}"` : `data-go="${t.go}"`}>${esc(t.text)} <span>›</span></button></li>`).join("")}</ul>
+          <li><button type="button" class="${t.kind}" ${t.order ? `data-order="${esc(t.order)}"` : t.id ? `data-open="${esc(t.id)}"` : `data-go="${t.go}"`}>${esc(t.text)} <span>›</span></button></li>`).join("")}</ul>
           ${todo.length > LIMIT ? `<p class="muted small">…and ${todo.length - LIMIT} more. Fix these first.</p>` : ""}`
         : `<p class="adm-allgood">Everything looks good ✨</p>`}
       </section>
@@ -614,22 +650,30 @@
       <section class="adm-card">
         <h2>Quick actions</h2>
         <div class="adm-quick">
-          <button type="button" class="btn" data-quick="add">+ Add product</button>
-          <a class="btn btn-outline" href="paylink" target="_blank" rel="noopener">Payment link</a>
+          <button type="button" class="btn" data-quick="order">+ New order</button>
+          <button type="button" class="btn btn-outline" data-quick="add">+ Add product</button>
           <a class="btn btn-outline" href="index.html" target="_blank" rel="noopener">View website</a>
           <a class="btn btn-outline" href="https://cloud.umami.is" target="_blank" rel="noopener">Visitor stats</a>
         </div>
-        <p class="muted small">Changes show on the website within about 5 minutes of saving.</p>
+        <p class="muted small">Changes show on the website within about 5 minutes of saving. A payment link without saving an order: <a href="paylink" target="_blank" rel="noopener">payment link tool</a>.</p>
       </section>`;
   }
 
+  // where the dashboard's numbers and to-dos lead
+  const GO = {
+    products: () => showList(), reviews: () => showReviews(), settings: () => showSettings(),
+    orders: () => { ordersView = "list"; showOrders(); },
+    "orders-ship": () => { ordersView = "list"; orderFilter = "ship"; showOrders(); },
+    "orders-new": () => { ordersView = "list"; orderFilter = "new"; showOrders(); },
+    sales: () => { ordersView = "sales"; salesMonth = ""; showOrders(); }
+  };
   app.addEventListener("click", (e) => {
     const go = e.target.closest("[data-go]");
     const open = e.target.closest("[data-open]");
     const quick = e.target.closest("[data-quick]");
-    if (go) ({ products: () => showList(), reviews: showReviews, settings: showSettings })[go.dataset.go]();
+    if (go) GO[go.dataset.go]();
     if (open) showEdit(designs.find((d) => d.id === open.dataset.open));
-    if (quick && quick.dataset.quick === "add") showEdit(null);
+    if (quick) quick.dataset.quick === "order" ? showOrder(null) : showEdit(null);
     if (go || open || quick) window.scrollTo(0, 0);
   });
 
@@ -657,6 +701,7 @@
     setTabs("reviews");
     editing = null;
     cfg = null;
+    order = null;
     const counts = { waiting: 0, yes: 0, no: 0 };
     reviews.list.forEach((r) => { counts[r.show || "waiting"]++; });
     const shown = reviews.list.filter((r) => reviewFilter === "all" || (r.show || "waiting") === reviewFilter);
@@ -778,6 +823,7 @@
   function showSettings() {
     setTabs("settings");
     editing = null;
+    order = null;
     const rateKeys = Object.keys(settingsMap).map((k) => k.match(/^shipping_(\d+)_items?$/)).filter((m) => m && S(m[0]) !== "")
       .sort((a, b) => a[1] - b[1]);
     cfg = {
@@ -1006,6 +1052,725 @@
       fail(e.message);
     }
   }
+
+  /* =========================================================
+     Orders: kept in a private Google Sheet the script makes
+     ("The Women Shop - Orders (private)"), one row per order
+     ========================================================= */
+  const STEPS = [["new", "Ordered"], ["paid", "Paid"], ["packed", "Packed"], ["shipped", "Shipped"], ["delivered", "Delivered"]];
+  const STATUS_LABEL = { new: "Awaiting payment", paid: "Paid", packed: "Packed", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" };
+  const STATUS_CLASS = { new: "some", paid: "paid", packed: "packed", shipped: "shipped", delivered: "ok", cancelled: "hidden" };
+  const SOLD = ["paid", "packed", "shipped", "delivered"]; // these count as sales
+  const COURIERS = ["DTDC", "Delhivery", "India Post", "Professional Couriers", "ST Courier", "Blue Dart", "Shiprocket", "XpressBees", "Ekart", "Trackon"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  // "Awaiting payment" / "paid" / "Shipped" → new / paid / shipped
+  const statusKey = (v) => {
+    const k = keyOf(v);
+    if (k === "canceled") return "cancelled";
+    return Object.keys(STATUS_LABEL).find((s) => s === k || keyOf(STATUS_LABEL[s]) === k) || "new";
+  };
+  const num = (v) => Number(String(v ?? "").replace(/[^\d.]/g, "")) || 0;
+  const pad = (n) => String(n).padStart(2, "0");
+  const stampOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const dateOf = (s) => {
+    const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+    return m ? new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+  };
+  const daysSince = (s) => { const d = dateOf(s); return d ? Math.floor((Date.now() - d) / 86400000) : 0; };
+  const fmtDay = (s, time = false) => {
+    const d = dateOf(s);
+    if (!d) return s || "";
+    const day = `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : ""}`;
+    return time && /\d{2}:\d{2}/.test(s) ? `${day}, ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : day;
+  };
+  const monthOf = (s) => String(s || "").slice(0, 7); // "2026-11"
+  const monthName = (m) => `${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
+  const shiftMonth = (m, by) => { const d = new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1 + by, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+
+  // phone numbers: "093989 30741" / "+91 93989 30741" → "919398930741"
+  const phoneDigits = (v) => { const d = String(v || "").replace(/\D/g, "").replace(/^0+/, ""); return d.length === 10 ? `91${d}` : d; };
+  const phoneOk = (v) => /^91[6-9]\d{9}$/.test(phoneDigits(v));
+  const phoneShow = (v) => { const d = phoneDigits(v); return /^91\d{10}$/.test(d) ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : String(v || ""); };
+
+  const itemDesc = (it) => [it.color, it.size].filter(Boolean).join(", ");
+  const itemCount = (o) => o.items.reduce((n, it) => n + (Number(it.qty) || 0), 0);
+  const productsTotal = (o) => o.items.reduce((n, it) => n + num(it.price) * (Number(it.qty) || 0), 0);
+  const orderTotal = (o) => (o.items.length ? Math.max(0, productsTotal(o) + num(o.shipping) - num(o.discount)) : num(o.total));
+  // Sales = what was paid for products, after the discount (shipping isn't counted)
+  const salesOf = (o) => (o.items.length ? productsTotal(o) - num(o.discount) : Math.max(0, num(o.total) - num(o.shipping)));
+  // Shipping charges from the Settings tab (else the website's), e.g. [80, 140]
+  function shippingRates() {
+    const keys = Object.keys(settingsMap).map((k) => k.match(/^shipping_(\d+)_items?$/)).filter((m) => m && S(m[0]) !== "").sort((a, b) => a[1] - b[1]);
+    return keys.length ? keys.map((m) => num(S(m[0]))) : C.shippingRates.slice();
+  }
+  // "" when more items than the rates cover (by weight)
+  const autoShipping = (count) => { const r = shippingRates(); return count >= 1 && count <= r.length ? String(r[count - 1]) : ""; };
+
+  const payLink = (o) => { const ship = num(o.shipping); return `https://${C.domain}/pay?o=${encodeURIComponent(o.id)}&a=${orderTotal(o)}${ship ? `&s=${ship}` : ""}`; };
+  const reviewLink = (o) => `https://${C.domain}/?review=${encodeURIComponent(o.id)}${o.items[0] ? `&p=${encodeURIComponent(o.items[0].id)}` : ""}`;
+  const waTo = (o, text) => `https://wa.me/${phoneOk(o.phone) ? phoneDigits(o.phone) : ""}?text=${encodeURIComponent(text)}`;
+
+  function toOrder(keys, row, cells) {
+    const o = {};
+    keys.forEach((k, i) => { if (k && !(k in o)) o[k] = String(cells[i] ?? "").trim(); });
+    let items = [];
+    try { items = JSON.parse(o.items_data || "[]"); } catch (e) { items = []; }
+    if (!Array.isArray(items)) items = [];
+    return {
+      row, id: (o.order_id || "").toUpperCase(), date: o.date || "", status: statusKey(o.status),
+      name: o.name || "", phone: o.phone || "", city: o.city || "", address: o.address || "", pincode: o.pincode || "",
+      items: items.map((it) => ({ id: String(it.id || ""), name: String(it.name || ""), color: String(it.color || ""), size: String(it.size || ""), qty: Math.max(1, Number(it.qty) || 1), price: num(it.price) })),
+      itemsText: o.items || "", shipping: o.shipping || "", discount: o.discount || "", total: o.total || "",
+      payment_ref: o.payment_ref || "", courier: o.courier || "", tracking: o.tracking || "", tracking_link: o.tracking_link || "",
+      notes: o.notes || "", paid_on: o.paid_on || "", packed_on: o.packed_on || "", shipped_on: o.shipped_on || "",
+      delivered_on: o.delivered_on || "", cancelled_on: o.cancelled_on || "", stock_done: yes(o.stock_done), updated: o.updated || ""
+    };
+  }
+  const byNewest = (a, b) => String(b.date).localeCompare(String(a.date)) || b.row - a.row;
+  function toOrders(r) {
+    if (!r || r.error) return { list: [], url: "", error: (r && r.error) || "" };
+    const keys = r.headers.map(keyOf);
+    return { list: r.rows.map(({ row, cells }) => toOrder(keys, row, cells)).filter((o) => o.id).sort(byNewest), url: r.url || "", error: "" };
+  }
+
+  /* ---------- reading the customer's WhatsApp order message (made by the website's "Order on WhatsApp") ---------- */
+  function parseOrderMessage(text) {
+    let t = String(text || "").replace(/\r/g, "");
+    let name = "";
+    // copied with the chat header: "[02/11/26, 8:15 pm] Kavya: Hi…" or "02/11/26, 8:15 pm - Kavya: Hi…"
+    const head = t.match(/^\s*\[[^\]\n]{4,40}\]\s*([^:\n]{1,40}):\s*/) || t.match(/^\s*\d{1,2}\/\d{1,2}\/\d{2,4},?[^\n-]{3,20}-\s*([^:\n]{1,40}):\s*/);
+    if (head) { name = head[1].trim(); t = t.slice(head[0].length); }
+    t = t.replace(/\*/g, "");
+    const id = ((t.match(/Order ID:\s*([A-Za-z0-9-]{3,30})/i) || [])[1] || "").toUpperCase();
+    const items = [];
+    const re = /^\s*\d+\.\s*(.+?)\s*\(([A-Za-z0-9_-]+)\)\s*\n\s*Size:\s*([^|\n]*?)\s*(?:\|\s*Colou?r:\s*([^|\n]+?)\s*)?\|\s*Qty:\s*(\d+)\s*\|\s*[^\d\n]*([\d,]+(?:\.\d+)?)/gm;
+    let m;
+    while ((m = re.exec(t))) {
+      const qty = Math.max(1, Number(m[5]) || 1);
+      items.push({ id: m[2].toUpperCase(), name: m[1].trim(), size: m[3].trim(), color: (m[4] || "").trim(), qty, price: Math.round(num(m[6]) / qty) });
+    }
+    const ship = t.match(/Shipping \(estimate\):\s*[^\d\n]*([\d,]+)/i);
+    return { id, name, items, shipping: ship ? String(num(ship[1])) : "" };
+  }
+
+  function newOrderId() {
+    const d = new Date();
+    const ymd = `${String(d.getFullYear()).slice(2)}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    let id;
+    do id = `TWS${ymd}-${Math.floor(1000 + Math.random() * 9000)}`; while (orders.list.some((o) => o.id === id));
+    return id;
+  }
+  // "TWS261102-1234" → the day the customer ordered on the website
+  function dateFromId(id) {
+    const m = String(id).match(/^TWS(\d{2})(\d{2})(\d{2})-/);
+    if (!m || m[2] < 1 || m[2] > 12 || m[3] < 1 || m[3] > 31) return "";
+    const day = `20${m[1]}-${m[2]}-${m[3]}`;
+    const now = stampOf(new Date());
+    return now.startsWith(day) ? now : day;
+  }
+  const blankOrder = () => ({
+    row: 0, id: newOrderId(), date: "", status: "new", name: "", phone: "", city: "", address: "", pincode: "", items: [], itemsText: "",
+    shipping: "", discount: "", total: "", payment_ref: "", courier: "", tracking: "", tracking_link: "", notes: "", stock_done: false,
+    updated: "", shipAuto: true, paidNow: false, pick: {}, paste: "", pasteNote: ""
+  });
+
+  /* ---------- the messages you send the customer (WhatsApp opens with the text ready) ---------- */
+  const MESSAGES = [["pay", "Payment link"], ["remind", "Payment reminder"], ["paid", "Payment received"],
+    ["shipped", "Shipped + tracking"], ["delivered", "Delivered + ask for a review"], ["cancelled", "Order cancelled"]];
+  const NEXT_MESSAGE = { new: "pay", paid: "paid", shipped: "shipped", delivered: "delivered", cancelled: "cancelled" };
+  function messageFor(kind, o) {
+    const first = String(o.name || "").trim().split(/\s+/)[0];
+    const hi = `Hi${first ? ` ${first}` : ""}!`;
+    const ship = num(o.shipping), disc = num(o.discount), total = orderTotal(o);
+    const lines = o.items.map((it) => `• ${it.name}${itemDesc(it) ? ` (${itemDesc(it)})` : ""} × ${it.qty}`).join("\n");
+    if (kind === "pay") {
+      return `${hi} Your order *${o.id}* is confirmed ✅\n\n${lines ? `${lines}\n\n` : ""}` +
+        `${o.items.length ? `Products: ${money(productsTotal(o))}\nShipping: ${ship ? money(ship) : "Free"}\n${disc ? `Discount: −${money(disc)}\n` : ""}` : ""}` +
+        `Amount to pay: *${money(total)}*\nPay here (any UPI app): ${payLink(o)}\n\nPlease send the payment screenshot after paying. Thank you for shopping with ${C.name} 💖`;
+    }
+    if (kind === "remind") return `${hi} Just a reminder about your order *${o.id}* (${money(total)}).\nPay here (any UPI app): ${payLink(o)}\n\nMessage us if you need any help 😊`;
+    if (kind === "paid") return `${hi} We've received your payment of *${money(total)}* for order *${o.id}* ✅\nWe'll pack it with care and send you the tracking details once it ships. Delivery usually takes ${val("shipping_time", C.shippingTime)}. 💖`;
+    if (kind === "shipped") {
+      return `${hi} Your order *${o.id}* is on the way 🚚\n${o.courier ? `Courier: ${o.courier}\n` : ""}${o.tracking ? `Tracking number: ${o.tracking}\n` : ""}${o.tracking_link ? `Track it here: ${o.tracking_link}\n` : ""}` +
+        `\nPlease record a video while opening the parcel. We need it to exchange anything damaged in transit. 💖`;
+    }
+    if (kind === "delivered") {
+      return `${hi} Your order *${o.id}* has been delivered 🎉 We hope you love it 💖\n\nCould you rate it? It takes 30 seconds and really helps our small shop: ${reviewLink(o)}\n\nTag us on Instagram @${C.instagramHandle} when you wear it ✨`;
+    }
+    return `${hi} Sorry, your order *${o.id}* has been cancelled. Please message us if you have any questions.`;
+  }
+
+  /* ---------- orders list + sales ---------- */
+  let orderFilter = "active", orderQuery = "", ordersView = "list", salesMonth = "";
+  const ORDER_FILTERS = [
+    ["active", "Active", (o) => o.status !== "delivered" && o.status !== "cancelled"],
+    ["new", "Awaiting payment", (o) => o.status === "new"],
+    ["ship", "To pack & ship", (o) => o.status === "paid" || o.status === "packed"],
+    ["shipped", "Shipped", (o) => o.status === "shipped"],
+    ["delivered", "Delivered", (o) => o.status === "delivered"],
+    ["cancelled", "Cancelled", (o) => o.status === "cancelled"],
+    ["all", "All", () => true]
+  ];
+  const statusPill = (o) => `<span class="adm-status ${STATUS_CLASS[o.status]}">${STATUS_LABEL[o.status]}</span>`;
+  // Shown when an order has waited too long at its step
+  function lateNote(o) {
+    if (o.status === "new" && daysSince(o.date) >= 2) return `unpaid for ${daysSince(o.date)} days`;
+    if ((o.status === "paid" || o.status === "packed") && daysSince(o.paid_on || o.date) >= 2) return `paid ${daysSince(o.paid_on || o.date)} days ago`;
+    if (o.status === "shipped" && daysSince(o.shipped_on) >= 10) return `shipped ${daysSince(o.shipped_on)} days ago`;
+    return "";
+  }
+  const colourOf = (d, color) => d.colours.find((c) => c.color.toLowerCase() === String(color || "").toLowerCase()) || (d.colours.length === 1 ? d.colours[0] : null);
+  const sizeOf = (d, size) => d.sizes.find((s) => up(s) === up(size || "")) || "";
+  function itemImage(it) {
+    const d = designs.find((x) => x.id === it.id);
+    if (!d) return "";
+    const c = (colourOf(d, it.color) || {}).images?.length ? colourOf(d, it.color) : d.colours.find((x) => x.images.length);
+    return c ? thumbOf(c.images[0].url) : "";
+  }
+
+  function showOrders() {
+    setTabs("orders");
+    editing = null;
+    cfg = null;
+    order = null;
+    dirty = false;
+    app.innerHTML = `
+      <div class="adm-head">
+        <h1>Orders <small>${orders.list.length}</small></h1>
+        <button type="button" class="btn" data-oq="new">+ New order</button>
+      </div>
+      <div class="adm-seg">
+        <button type="button" data-oview="list" class="${ordersView === "list" ? "on" : ""}">Orders</button>
+        <button type="button" data-oview="sales" class="${ordersView === "sales" ? "on" : ""}">Sales</button>
+      </div>
+      ${orders.error ? `<p class="adm-error">The orders sheet couldn't be opened: ${esc(orders.error)}</p>` : ""}
+      <div id="ov"></div>`;
+    if (ordersView === "sales") return drawSales();
+    const n = (f) => orders.list.filter(f).length;
+    $("#ov").innerHTML = `
+      <input class="field adm-search" id="oq" type="search" placeholder="Search name, phone, order ID or product code" value="${esc(orderQuery)}">
+      <div class="adm-chips" id="of">${ORDER_FILTERS.map(([k, l, f]) =>
+        `<button type="button" data-of="${k}" class="${k === orderFilter ? "on" : ""}">${l}${k === "all" ? "" : ` (${n(f)})`}</button>`).join("")}</div>
+      <div class="adm-list" id="oitems"></div>
+      ${orders.url ? `<p class="muted small center adm-sheetlink"><a href="${esc(orders.url)}" target="_blank" rel="noopener">Open the orders sheet ↗</a> Private: only you can see it.</p>` : ""}`;
+    drawOrders();
+  }
+
+  function drawOrders() {
+    const q = orderQuery.trim().toLowerCase();
+    const digits = q.replace(/\D/g, "");
+    const f = ORDER_FILTERS.find(([k]) => k === orderFilter)[2];
+    const shown = orders.list.filter((o) => f(o) && (!q ||
+      [o.id, o.name, o.city, o.itemsText, ...o.items.map((it) => `${it.id} ${it.name}`)].join(" ").toLowerCase().includes(q) ||
+      (digits.length >= 4 && phoneDigits(o.phone).includes(digits))));
+    $("#oitems").innerHTML = shown.length ? shown.map((o) => {
+      const first = o.items[0];
+      const img = first ? itemImage(first) : "";
+      const late = lateNote(o);
+      const what = first ? `${first.name}${itemDesc(first) ? ` (${itemDesc(first)})` : ""}${o.items.length > 1 ? ` + ${o.items.length - 1} more` : ""}` : o.itemsText.split("\n")[0];
+      return `
+        <button type="button" class="adm-item adm-order" data-order="${esc(o.id)}">
+          <span class="adm-thumb">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ""}</span>
+          <span class="adm-item-main">
+            <strong>${esc(o.name || "(no name)")}${o.city ? ` · ${esc(o.city)}` : ""}</strong>
+            <small>${esc(o.id)} · ${esc(fmtDay(o.date))}</small>
+            <small class="adm-order-what">${esc(what)}</small>
+          </span>
+          <span class="adm-order-side">${statusPill(o)}<strong>${money(orderTotal(o))}</strong>${late ? `<em>${esc(late)}</em>` : ""}</span>
+        </button>`;
+    }).join("") : `<p class="muted center adm-empty">${orders.list.length ? "No orders here."
+      : "No orders yet. When a customer sends an order on WhatsApp, copy the message and tap <strong>+ New order</strong>."}</p>`;
+  }
+
+  function drawSales() {
+    const now = monthOf(stampOf(new Date()));
+    if (!salesMonth) salesMonth = now;
+    const m = salesMonth;
+    const inMonth = orders.list.filter((o) => monthOf(o.date) === m);
+    const sold = inMonth.filter((o) => SOLD.includes(o.status));
+    const sales = sold.reduce((n, o) => n + salesOf(o), 0);
+    const shipping = sold.reduce((n, o) => n + num(o.shipping), 0);
+    const pieces = sold.reduce((n, o) => n + itemCount(o), 0);
+    const unpaid = inMonth.filter((o) => o.status === "new");
+    const cancelled = inMonth.filter((o) => o.status === "cancelled").length;
+    const top = {};
+    sold.forEach((o) => o.items.forEach((it) => {
+      const t = top[it.id] || (top[it.id] = { it, qty: 0, amount: 0 });
+      t.qty += it.qty;
+      t.amount += num(it.price) * it.qty;
+    }));
+    const topList = Object.values(top).sort((a, b) => b.qty - a.qty || b.amount - a.amount).slice(0, 5);
+    const cities = {};
+    sold.forEach((o) => {
+      const c = o.city.trim();
+      // "ongole" and "Ongole" are the same city
+      if (c) (cities[c.toLowerCase()] = cities[c.toLowerCase()] || { name: c.toLowerCase().replace(/(^|\s)\S/g, (x) => x.toUpperCase()), n: 0 }).n++;
+    });
+    const cityList = Object.values(cities).sort((a, b) => b.n - a.n).slice(0, 5);
+    const months = Array.from({ length: 6 }, (_, i) => shiftMonth(m, i - 5)).map((mm) => ({
+      mm, v: orders.list.filter((o) => monthOf(o.date) === mm && SOLD.includes(o.status)).reduce((n, o) => n + salesOf(o), 0)
+    }));
+    const max = Math.max(1, ...months.map((x) => x.v));
+    const box = (n, label, kind = "") => `<div class="adm-stat ${kind}"><strong>${n}</strong><span>${label}</span></div>`;
+    $("#ov").innerHTML = `
+      <div class="adm-month">
+        <button type="button" class="adm-icon" data-sm="-1" aria-label="Previous month">‹</button>
+        <strong>${monthName(m)}</strong>
+        <button type="button" class="adm-icon" data-sm="1" aria-label="Next month" ${m >= now ? "disabled" : ""}>›</button>
+      </div>
+      <div class="adm-stats">
+        ${box(money(sales), "sales", "hot")}
+        ${box(sold.length, `paid order${sold.length === 1 ? "" : "s"}`)}
+        ${box(pieces, `piece${pieces === 1 ? "" : "s"} sold`)}
+        ${box(sold.length ? money(Math.round(sales / sold.length)) : "–", "average order")}
+        ${box(unpaid.length, `awaiting payment${unpaid.length ? ` (${money(unpaid.reduce((n, o) => n + orderTotal(o), 0))})` : ""}`, unpaid.length ? "warn" : "")}
+        ${box(cancelled, "cancelled")}
+      </div>
+      <p class="muted small">Sales = what customers paid for products, after discounts, in orders marked Paid or later. Shipping charges (${money(shipping)} this month) aren't included.</p>
+      <section class="adm-card">
+        <h2>Best sellers</h2>
+        ${topList.length ? `<ul class="adm-rank">${topList.map(({ it, qty, amount }) => {
+          const img = itemImage(it);
+          return `<li><span class="adm-thumb sm">${img ? `<img src="${esc(img)}" alt="">` : ""}</span><span><strong>${esc(it.name)}</strong><small>${esc(it.id)}</small></span><b>${qty} pc · ${money(amount)}</b></li>`;
+        }).join("")}</ul>` : `<p class="muted small">No paid orders this month yet.</p>`}
+      </section>
+      ${cityList.length ? `<section class="adm-card"><h2>Top cities</h2><ul class="adm-rank">${cityList.map((c) =>
+        `<li><span><strong>${esc(c.name)}</strong></span><b>${c.n} order${c.n === 1 ? "" : "s"}</b></li>`).join("")}</ul></section>` : ""}
+      <section class="adm-card">
+        <h2>Last 6 months</h2>
+        <div class="adm-bars">${months.map(({ mm, v }) => `
+          <div class="${mm === m ? "on" : ""}"><span>${MONTHS[Number(mm.slice(5)) - 1]}</span><i style="width:${Math.round((v / max) * 100)}%"></i><b>${money(v)}</b></div>`).join("")}</div>
+      </section>`;
+  }
+
+  app.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-order]");
+    if (card) {
+      if (dirty && !confirm("Leave without saving your changes?")) return;
+      const o = orders.list.find((x) => x.id === card.dataset.order);
+      if (o) { showOrder(o); window.scrollTo(0, 0); }
+      return;
+    }
+    if (e.target.closest('[data-oq="new"]')) { showOrder(null); window.scrollTo(0, 0); return; }
+    const v = e.target.closest("[data-oview]");
+    if (v) { ordersView = v.dataset.oview; return showOrders(); }
+    const f = e.target.closest("[data-of]");
+    if (f) {
+      orderFilter = f.dataset.of;
+      $("#of").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === f));
+      return drawOrders();
+    }
+    const sm = e.target.closest("[data-sm]");
+    if (sm) { salesMonth = shiftMonth(salesMonth, Number(sm.dataset.sm)); drawSales(); }
+  });
+  app.addEventListener("input", (e) => {
+    if (e.target.id === "oq") { orderQuery = e.target.value; drawOrders(); }
+  });
+
+  /* ---------- one order: add / edit / move it along ---------- */
+  function showOrder(o) {
+    setTabs(null);
+    editing = null;
+    cfg = null;
+    order = o ? { ...JSON.parse(JSON.stringify(o)), shipAuto: false, paidNow: false, pick: {}, paste: "", pasteNote: "" } : blankOrder();
+    dirty = false;
+    renderOrder();
+  }
+
+  function shipHint(o) {
+    const count = itemCount(o), auto = autoShipping(count);
+    if (!o.items.length) return "";
+    if (auto === "") return `${count} items: shipping is by weight. Type the charge.`;
+    if (String(o.shipping) !== auto) return `Usual charge for ${count} item${count === 1 ? "" : "s"}: ${money(auto)} <button type="button" class="adm-linkbtn" data-oact="auto-ship">Use it</button>`;
+    return "";
+  }
+
+  function progressCard(o) {
+    const st = o.status;
+    const at = STEPS.findIndex(([k]) => k === st);
+    const when = { new: o.date, paid: o.paid_on, packed: o.packed_on, shipped: o.shipped_on, delivered: o.delivered_on };
+    const courier = `
+      <div class="adm-two">
+        <div><label class="field-label">Courier</label><input class="field" data-o="courier" list="dl-courier" value="${esc(o.courier)}" placeholder="DTDC"></div>
+        <div><label class="field-label">Tracking number</label><input class="field" data-o="tracking" value="${esc(o.tracking)}"></div>
+      </div>
+      <label class="field-label">Tracking link <span class="muted small">(optional)</span></label>
+      <input class="field" data-o="tracking_link" type="url" value="${esc(o.tracking_link)}" placeholder="https://…">`;
+    const payRef = `
+      <label class="field-label">Payment reference <span class="muted small">(UPI ref. no. or a note, optional)</span></label>
+      <input class="field" data-o="payment_ref" value="${esc(o.payment_ref)}">`;
+    const to = (key, label, cls = "btn") => `<button type="button" class="${cls}" data-oact="to" data-to="${key}">${label}</button>`;
+    let body = "";
+    if (st === "new") body = `${payRef}<div class="adm-next">${to("paid", "✓ Mark as paid")}</div>`;
+    if (st === "paid" || st === "packed") {
+      body = `${courier}<div class="adm-next">${st === "paid" ? to("packed", "Mark as packed", "btn btn-outline") : ""}${to("shipped", "🚚 Mark as shipped")}</div>${payRef}`;
+    }
+    if (st === "shipped") body = `${courier}<div class="adm-next">${to("delivered", "🎉 Mark as delivered")}</div>${payRef}`;
+    if (st === "delivered") body = `${courier}${payRef}`;
+    if (st === "cancelled") {
+      body = `<p class="adm-note">Cancelled ${esc(fmtDay(o.cancelled_on))}. If you marked sizes sold out for this order, open the product in Products to put them back.</p>
+        <div class="adm-next">${to("new", "Reopen order", "btn btn-outline")}</div>`;
+    }
+    return `
+      <section class="adm-card">
+        <ol class="adm-steps ${st === "cancelled" ? "off" : ""}">${STEPS.map(([k, label], i) => `
+          <li class="${i < at ? "done" : i === at ? "now" : ""}"><b>${i <= at ? "✓" : i + 1}</b><span>${label}</span><small>${i <= at && when[k] ? esc(fmtDay(when[k])) : ""}</small></li>`).join("")}</ol>
+        ${body}
+        ${st !== "cancelled" && st !== "delivered" ? `<button type="button" class="adm-link-danger adm-cancel" data-oact="to" data-to="cancelled">Cancel this order</button>` : ""}
+      </section>`;
+  }
+
+  function messagesCard(o) {
+    const next = NEXT_MESSAGE[o.status];
+    const first = String(o.name || "").trim().split(/\s+/)[0];
+    const link = (kind, label, primary) => `<a class="${primary ? "btn btn-wa btn-block" : "adm-msg"}" href="${esc(waTo(o, messageFor(kind, o)))}" target="_blank" rel="noopener" data-msg="${kind}">${primary ? `Send "${label}" on WhatsApp` : esc(label)}</a>`;
+    return `
+      <section class="adm-card">
+        <h2>Message ${esc(first || "the customer")}</h2>
+        ${next ? link(next, MESSAGES.find(([k]) => k === next)[1], true) : `<p class="muted small">Nothing to send right now. Mark it shipped when it goes out.</p>`}
+        ${phoneOk(o.phone) ? "" : `<p class="adm-hint">Add the mobile number below so messages open the right chat.</p>`}
+        <details class="adm-msgs"><summary>Other messages</summary>${MESSAGES.filter(([k]) => k !== next).map(([k, l]) => link(k, l)).join("")}</details>
+        <p class="muted small">WhatsApp opens with the message ready. You can change it before sending.</p>
+      </section>`;
+  }
+
+  function stockCard(o) {
+    const rows = o.items.map((it, k) => {
+      const d = designs.find((x) => x.id === it.id);
+      if (!d) return "";
+      const c = colourOf(d, it.color);
+      const size = sizeOf(d, it.size);
+      const why = !c ? "colour not found" : !c.in_stock || (size && c.sold_out.includes(size)) ? "already sold out" : d.sizes.length && !size ? "size not found" : "";
+      return `<label class="adm-toggle"><input type="checkbox" data-stock="${k}" ${why ? "disabled" : ""}> ${esc(it.name)}${itemDesc(it) ? ` · ${esc(itemDesc(it))}` : ""}${why ? ` <span class="muted small">(${why})</span>` : ""}</label>`;
+    }).join("");
+    return `
+      <section class="adm-card adm-stockcard">
+        <h2>Update website stock?</h2>
+        <p class="muted small">Was this the last piece? Tick it to show it as sold out on the website.</p>
+        ${rows}
+        <div class="adm-next"><button type="button" class="btn" data-oact="stock">Update stock</button><button type="button" class="btn btn-outline" data-oact="stock-skip">No change needed</button></div>
+      </section>`;
+  }
+
+  function renderOrder() {
+    const o = order;
+    const y = window.scrollY;
+    const saved = !!o.row;
+    const count = itemCount(o);
+    const pd = designs.find((d) => d.id === o.pick.id);
+    const pc = pd ? pd.colours.find((c) => c.color === o.pick.color) || pd.colours[0] : null;
+    app.innerHTML = `
+      <div class="adm-head">
+        <button type="button" class="adm-back" data-oact="back">← Orders</button>
+        ${saved ? statusPill(o) : ""}
+      </div>
+      <h1 class="adm-h1">${saved ? `${esc(o.name || "Order")} <small>${esc(o.id)}</small>` : "New order"}</h1>
+      ${saved ? `<p class="muted small">Ordered ${esc(fmtDay(o.date, true))}</p>` : ""}
+      <p class="adm-error" id="err" hidden></p>
+
+      ${saved ? "" : `
+      <section class="adm-card adm-paste">
+        <h2>1. Paste the WhatsApp order</h2>
+        <p class="muted small">In WhatsApp, press and hold the customer's order message → <strong>Copy</strong>, then paste it here. For orders from Instagram or a call, skip this and add the items below.</p>
+        <textarea class="field" id="paste" rows="4" placeholder="Hi ${esc(C.name)}! I'd like to place an order…">${esc(o.paste)}</textarea>
+        <button type="button" class="btn btn-outline" data-oact="read">Read message</button>
+        ${o.pasteNote ? `<p class="adm-note">${o.pasteNote}</p>` : ""}
+      </section>`}
+
+      ${saved ? progressCard(o) + messagesCard(o) : ""}
+      ${saved && (o.status === "paid" || o.status === "packed") && !o.stock_done && o.items.some((it) => designs.some((d) => d.id === it.id)) ? stockCard(o) : ""}
+
+      <section class="adm-card">
+        <h2>${saved ? "Customer" : "2. Customer"}</h2>
+        ${saved ? "" : `<label class="field-label">Order ID</label><input class="field" data-o="id" value="${esc(o.id)}" autocapitalize="characters" spellcheck="false">`}
+        <div class="adm-two">
+          <div><label class="field-label">Name *</label><input class="field" data-o="name" value="${esc(o.name)}" autocomplete="off"></div>
+          <div><label class="field-label">Mobile number *</label><input class="field" data-o="phone" type="tel" inputmode="tel" value="${esc(phoneShow(o.phone))}" placeholder="98765 43210"></div>
+          <div><label class="field-label">City</label><input class="field" data-o="city" value="${esc(o.city)}"></div>
+          <div><label class="field-label">Pincode</label><input class="field" data-o="pincode" inputmode="numeric" maxlength="6" value="${esc(o.pincode)}"></div>
+        </div>
+        <label class="field-label">Delivery address</label>
+        <textarea class="field" data-o="address" rows="3" placeholder="House no., street, area, landmark">${esc(o.address)}</textarea>
+        ${saved && phoneOk(o.phone) ? `<div class="adm-contact"><a class="adm-icon" href="tel:+${phoneDigits(o.phone)}">📞 Call</a><a class="adm-icon" href="https://wa.me/${phoneDigits(o.phone)}" target="_blank" rel="noopener">💬 Open WhatsApp chat</a></div>` : ""}
+      </section>
+
+      <section class="adm-card">
+        <h2>${saved ? "Items" : "3. Items"} <small>${count}</small></h2>
+        ${o.items.length ? o.items.map((it, k) => {
+          const img = itemImage(it);
+          return `
+          <div class="adm-oitem" data-k="${k}">
+            <span class="adm-thumb sm">${img ? `<img src="${esc(img)}" alt="">` : ""}</span>
+            <div class="adm-oitem-main">
+              <strong>${esc(it.name || it.id)}</strong>
+              <small>${esc([it.id, it.color, it.size].filter(Boolean).join(" · "))}</small>
+              <div class="adm-oitem-row">
+                <span class="adm-qty"><button type="button" data-oact="qty" data-by="-1" aria-label="One less">−</button><b>${it.qty}</b><button type="button" data-oact="qty" data-by="1" aria-label="One more">+</button></span>
+                <label class="adm-price" title="Price for one">₹<input class="field" data-it="price" type="number" inputmode="numeric" min="0" value="${esc(it.price)}"></label>
+                <button type="button" class="adm-icon danger" data-oact="remove-item" aria-label="Remove item">✕</button>
+              </div>
+            </div>
+          </div>`;
+        }).join("") : `<p class="muted small">${o.itemsText ? esc(o.itemsText) : "No items yet."}</p>`}
+        <div class="adm-additem">
+          <select class="field" data-pick="id" aria-label="Add a product"><option value="">+ Add a product…</option>${designs.map((d) =>
+            `<option value="${esc(d.id)}" ${d.id === o.pick.id ? "selected" : ""}>${esc(d.id)} · ${esc(d.name)}</option>`).join("")}</select>
+          ${pd ? `
+            ${pd.colours.length > 1 ? `<select class="field" data-pick="color" aria-label="Colour">${pd.colours.map((c) => `<option value="${esc(c.color)}" ${c === pc ? "selected" : ""}>${esc(c.color || "(no colour)")}</option>`).join("")}</select>` : ""}
+            ${pd.sizes.length ? `<select class="field" data-pick="size" aria-label="Size">${pd.sizes.map((s) => `<option value="${esc(s)}" ${s === o.pick.size ? "selected" : ""}>${esc(s)}${!pc.in_stock || pc.sold_out.includes(s) ? " (sold out)" : ""}</option>`).join("")}</select>` : ""}
+            <button type="button" class="btn btn-outline" data-oact="add-item">Add</button>` : ""}
+        </div>
+        <div class="adm-totals">
+          <div><span>Products</span><strong id="t-products">${money(productsTotal(o))}</strong></div>
+          <div><span>Shipping</span><label class="adm-price">₹<input class="field" data-o="shipping" type="number" inputmode="numeric" min="0" value="${esc(o.shipping)}" placeholder="by weight"></label></div>
+          <p class="adm-hint" id="t-hint">${shipHint(o)}</p>
+          <div><span>Discount <span class="muted small">(optional)</span></span><label class="adm-price">−₹<input class="field" data-o="discount" type="number" inputmode="numeric" min="0" value="${esc(o.discount)}" placeholder="0"></label></div>
+          <div class="adm-total"><span>Total</span><strong id="t-total">${money(orderTotal(o))}</strong></div>
+        </div>
+      </section>
+
+      ${saved ? `
+      <section class="adm-card">
+        <h2>Notes</h2>
+        <textarea class="field" data-o="notes" rows="2" placeholder="Only you see this">${esc(o.notes)}</textarea>
+        <details class="adm-fix"><summary>Change the status by hand</summary>
+          <select class="field" data-o="status">${Object.keys(STATUS_LABEL).map((k) => `<option value="${k}" ${k === o.status ? "selected" : ""}>${STATUS_LABEL[k]}</option>`).join("")}</select>
+          <p class="muted small">Only to fix a mistake, then tap Save changes.</p>
+        </details>
+      </section>
+      <section class="adm-card adm-danger">
+        <h2>Delete order</h2>
+        <p class="muted small">Only for mistakes and duplicates. To keep a record, cancel it instead.</p>
+        <button type="button" class="btn btn-outline" data-oact="delete">Delete ${esc(o.id)}</button>
+      </section>` : `
+      <section class="adm-card">
+        <h2>4. Payment</h2>
+        <label class="adm-toggle"><input type="checkbox" data-o="paidNow" ${o.paidNow ? "checked" : ""}> The customer has already paid</label>
+        <label class="field-label">Notes</label>
+        <textarea class="field" data-o="notes" rows="2" placeholder="Only you see this">${esc(o.notes)}</textarea>
+      </section>`}
+
+      <div class="adm-save"><button type="button" class="btn btn-block" data-oact="save" id="save-order">${saved ? "Save changes" : "Save order"}</button></div>
+      <datalist id="dl-courier">${COURIERS.map((c) => `<option value="${c}">`).join("")}</datalist>`;
+    window.scrollTo(0, y);
+  }
+
+  function readPasted() {
+    const p = parseOrderMessage(order.paste);
+    if (!p.items.length) {
+      order.pasteNote = "Couldn't find any items in this message. Copy the customer's whole order message, or add the items below by hand.";
+      return renderOrder();
+    }
+    const dup = p.id && orders.list.find((x) => x.id === p.id);
+    if (dup) {
+      order.pasteNote = `Order <strong>${esc(p.id)}</strong> is already saved (${esc(dup.name)}). <button type="button" class="adm-linkbtn" data-order="${esc(p.id)}">Open it</button>`;
+      return renderOrder();
+    }
+    if (p.id) { order.id = p.id; order.date = dateFromId(p.id); }
+    order.items = p.items.map((it) => ({ ...it, name: it.name || (designs.find((d) => d.id === it.id) || {}).name || it.id }));
+    if (p.name && !order.name) order.name = p.name;
+    const auto = autoShipping(itemCount(order));
+    order.shipping = auto !== "" ? auto : p.shipping;
+    order.shipAuto = true;
+    const missing = order.items.filter((it) => !designs.some((d) => d.id === it.id)).length;
+    order.pasteNote = `Found ${p.items.length} item${p.items.length === 1 ? "" : "s"}${p.id ? ` in order <strong>${esc(p.id)}</strong>` : ""}. Check them below and add the customer's details.` +
+      (missing ? ` ${missing} item${missing === 1 ? " is" : "s are"} no longer in your products; ${missing === 1 ? "it's" : "they're"} kept as written.` : "");
+    dirty = true;
+    renderOrder();
+  }
+
+  // Checks and saves the order; to = the new status (or null to keep it). Returns true when saved.
+  async function saveOrder(to, quiet = false) {
+    const o = order;
+    const fail = (msg) => { const box = $("#err"); box.textContent = msg; box.hidden = false; box.scrollIntoView({ behavior: "smooth", block: "center" }); return false; };
+    const status = to || o.status;
+    o.id = String(o.id || "").trim().toUpperCase();
+    if (!/^[A-Z0-9-]{3,30}$/.test(o.id)) return fail("The Order ID can only have letters, numbers and -.");
+    if (!o.row && orders.list.some((x) => x.id === o.id)) return fail(`Order ${o.id} is already saved. Find it in Orders.`);
+    if (!o.name.trim()) return fail("Please enter the customer's name.");
+    if (!phoneOk(o.phone)) return fail("Please enter the customer's 10-digit mobile number.");
+    if (o.pincode.trim() && !/^\d{6}$/.test(o.pincode.trim())) return fail("The pincode should have 6 digits.");
+    if (!o.items.length && !o.itemsText) return fail("Please add at least one item.");
+    if (String(o.shipping).trim() === "" || !(Number(o.shipping) >= 0)) return fail("Please enter the shipping charge (0 for free).");
+    if (o.items.length && num(o.discount) > productsTotal(o)) return fail("The discount is more than the products total.");
+    if (status === "shipped" && !o.courier.trim()) return fail("Please enter the courier, then mark it shipped.");
+    if (to === "shipped" && !o.tracking.trim() && !confirm("Mark as shipped without a tracking number?")) return false;
+    if (to === "cancelled" && !confirm(`Cancel order ${o.id}?`)) return false;
+
+    const payload = {
+      order_id: o.id, date: o.date, status: STATUS_LABEL[status],
+      name: o.name.trim(), phone: phoneShow(o.phone), city: o.city.trim(), address: o.address.trim(), pincode: o.pincode.trim(),
+      items: o.items.length ? o.items.map((it) => `${it.id} ${it.name}${itemDesc(it) ? ` (${itemDesc(it)})` : ""} × ${it.qty} = ${money(num(it.price) * it.qty)}`).join("\n") : o.itemsText,
+      item_count: String(itemCount(o)), products_total: String(productsTotal(o)), shipping: String(Number(o.shipping)),
+      discount: num(o.discount) ? String(num(o.discount)) : "", total: String(orderTotal(o)),
+      payment_ref: o.payment_ref.trim(), courier: o.courier.trim(), tracking: o.tracking.trim(), tracking_link: o.tracking_link.trim(),
+      notes: o.notes.trim(), stock_done: o.stock_done ? "yes" : "",
+      items_data: o.items.length ? JSON.stringify(o.items.map((it) => ({ id: it.id, name: it.name, color: it.color, size: it.size, qty: it.qty, price: num(it.price) }))) : ""
+    };
+    const btn = $("#save-order");
+    const busy = [btn, ...app.querySelectorAll('[data-oact="to"], [data-oact="stock"], [data-oact="stock-skip"]')];
+    const label = btn.textContent;
+    busy.forEach((b) => (b.disabled = true));
+    btn.textContent = "Saving…";
+    try {
+      const j = await call("saveOrder", { order: payload, isNew: !o.row, updated: o.row ? o.updated : undefined });
+      const s = toOrder(j.order.headers.map(keyOf), j.order.row, j.order.cells);
+      orders.list = [s, ...orders.list.filter((x) => x.id !== s.id)].sort(byNewest);
+      if (j.url) orders.url = j.url;
+      dirty = false;
+      order = { ...s, shipAuto: false, paidNow: false, pick: {}, paste: "", pasteNote: "" };
+      if (!quiet) {
+        toast(!o.row ? (status === "paid" ? "Order saved as paid ✓" : "Order saved ✓ Now send the payment link.")
+          : { paid: "Marked as paid ✓ Send the payment received message.", packed: "Marked as packed ✓", shipped: "Marked as shipped ✓ Send the tracking message.",
+            delivered: "Marked as delivered 🎉 Ask for a review.", cancelled: "Order cancelled", new: to ? "Order reopened" : "Saved ✓" }[to || "new"] || "Saved ✓");
+      }
+      renderOrder();
+      if (!o.row || to) window.scrollTo(0, 0);
+      return true;
+    } catch (e) {
+      busy.forEach((b) => (b.disabled = false));
+      btn.textContent = label;
+      fail(e.message);
+      if (/reload/i.test(e.message)) $("#err").insertAdjacentHTML("beforeend", ` <button type="button" class="adm-linkbtn" data-oact="reload">Reload this order</button>`);
+      return false;
+    }
+  }
+
+  // Marks the ticked items' sizes sold out on the website (one save per product)
+  async function markSoldOut(items) {
+    for (const id of [...new Set(items.map((it) => it.id))]) {
+      const d = JSON.parse(JSON.stringify(designs.find((x) => x.id === id)));
+      items.filter((it) => it.id === id).forEach((it) => {
+        const c = colourOf(d, it.color);
+        const size = sizeOf(d, it.size);
+        if (!c) return;
+        if (d.sizes.length && size && !c.sold_out.includes(size)) c.sold_out.push(size);
+        if (!d.sizes.length) c.in_stock = false;
+      });
+      await call("save", { design: designPayload(d) });
+    }
+  }
+
+  async function updateStock(doIt) {
+    const picked = doIt ? [...app.querySelectorAll("[data-stock]:checked")].map((x) => order.items[Number(x.dataset.stock)]) : [];
+    if (doIt && !picked.length) return toast("Tick the pieces that are sold out, or tap No change needed.");
+    order.stock_done = true;
+    if (!(await saveOrder(null, true))) { order.stock_done = false; return; }
+    if (!picked.length) return toast("OK, stock unchanged.");
+    toast("Updating website stock…");
+    const id = order.id;
+    try {
+      await markSoldOut(picked);
+      if (await refresh()) {
+        showOrder(orders.list.find((x) => x.id === id));
+        toast("Website stock updated ✓ It shows within about 5 minutes.");
+      }
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  // after "changed on another phone": read the sheets again and show the order as it is now
+  async function reloadOrder() {
+    const id = order.id;
+    dirty = false;
+    if (!(await refresh())) return;
+    const o = orders.list.find((x) => x.id === id);
+    if (o) { showOrder(o); toast("Reloaded. Make your changes again."); } else showOrders();
+  }
+
+  async function removeOrder() {
+    const o = order;
+    if (!confirm(`Delete order ${o.id} (${o.name}) for good?\n\nTo keep a record, cancel it instead.`)) return;
+    try {
+      await call("deleteOrder", { id: o.id, updated: o.updated });
+      orders.list = orders.list.filter((x) => x.id !== o.id);
+      dirty = false;
+      toast(`Deleted order ${o.id}`);
+      showOrders();
+    } catch (e) {
+      const box = $("#err");
+      box.textContent = e.message;
+      box.hidden = false;
+    }
+  }
+
+  app.addEventListener("input", (e) => {
+    if (!order) return;
+    const t = e.target;
+    if (t.id === "paste") { order.paste = t.value; return; }
+    const f = t.dataset.o;
+    if (f && t.type !== "checkbox" && t.tagName !== "SELECT") {
+      order[f] = t.value;
+      dirty = true;
+      if (f === "shipping") order.shipAuto = false;
+    }
+    if (t.dataset.it === "price") {
+      order.items[Number(t.closest("[data-k]").dataset.k)].price = t.value;
+      dirty = true;
+    }
+    if (f === "shipping" || f === "discount" || t.dataset.it === "price") {
+      $("#t-products").textContent = money(productsTotal(order));
+      $("#t-total").textContent = money(orderTotal(order));
+      $("#t-hint").innerHTML = shipHint(order);
+    }
+  });
+
+  app.addEventListener("change", (e) => {
+    if (!order) return;
+    const t = e.target;
+    if (t.dataset.o === "paidNow") { order.paidNow = t.checked; dirty = true; return; }
+    if (t.dataset.o === "status") { order.status = t.value; dirty = true; return; }
+    const k = t.dataset.pick;
+    if (!k) return;
+    const p = order.pick;
+    p[k] = t.value;
+    const d = designs.find((x) => x.id === p.id);
+    if (k === "id") p.color = d ? d.colours[0].color : "";
+    if (d && k !== "size") {
+      const c = d.colours.find((x) => x.color === p.color) || d.colours[0];
+      p.size = d.sizes.find((s) => c.in_stock && !c.sold_out.includes(s)) || d.sizes[0] || "";
+    }
+    renderOrder();
+  });
+
+  app.addEventListener("click", (e) => {
+    if (!order) return;
+    const msg = e.target.closest("[data-msg]");
+    if (msg) { msg.href = waTo(order, messageFor(msg.dataset.msg, order)); return; } // uses what's typed now
+    const b = e.target.closest("[data-oact]");
+    if (!b || b.disabled) return;
+    const act = b.dataset.oact;
+    const row = b.closest("[data-k]");
+    const it = row ? order.items[Number(row.dataset.k)] : null;
+    if (act === "back") {
+      if (dirty && !confirm("Leave without saving your changes?")) return;
+      dirty = false;
+      return showOrders();
+    }
+    if (act === "save") return saveOrder(!order.row && order.paidNow ? "paid" : null);
+    if (act === "to") return saveOrder(b.dataset.to);
+    if (act === "delete") return removeOrder();
+    if (act === "stock" || act === "stock-skip") return updateStock(act === "stock");
+    if (act === "read") return readPasted();
+    if (act === "reload") return reloadOrder();
+    if (act === "qty") it.qty = Math.max(1, it.qty + Number(b.dataset.by));
+    if (act === "remove-item") order.items.splice(order.items.indexOf(it), 1);
+    if (act === "add-item") {
+      const d = designs.find((x) => x.id === order.pick.id);
+      if (!d) return;
+      const c = d.colours.find((x) => x.color === order.pick.color) || d.colours[0];
+      const size = order.pick.size || d.sizes[0] || "";
+      const same = order.items.find((x) => x.id === d.id && x.size === size && x.color === c.color);
+      if (same) same.qty++;
+      else order.items.push({ id: d.id, name: d.name, color: c.color, size, qty: 1, price: num(c.price || d.price) });
+      order.pick = {};
+    }
+    if (act === "auto-ship") { order.shipping = autoShipping(itemCount(order)); order.shipAuto = true; }
+    if (["qty", "remove-item", "add-item"].includes(act) && order.shipAuto) order.shipping = autoShipping(itemCount(order));
+    dirty = true;
+    renderOrder();
+  });
 
   if (auth.url && auth.pin) start(); else showLogin();
 })();
