@@ -9,8 +9,9 @@ const PAGE = "admin-page";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
+  // only this app's old copies (the customer website keeps its own files)
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k.startsWith("kavyas-shop-") && k !== CACHE).map((k) => caches.delete(k))))
     .catch(() => {})
     .then(() => self.clients.claim()));
 });

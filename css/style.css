@@ -92,6 +92,15 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .icon-btn .count { position: absolute; top: 0; right: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--primary); color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
 .icon-btn .count[hidden] { display: none; }
 .menu-btn { display: none; }
+/* the shop as a home-screen app */
+.app-back { margin-right: -12px; }
+.footer-app { color: #ffb6cf; font-size: 13px; font-weight: 600; }
+.footer-app:hover { color: #fff; }
+.app-modal-icon { display: block; width: 64px; height: 64px; margin-bottom: 12px; border-radius: 15px; }
+.app-steps { counter-reset: step; list-style: none; display: grid; gap: 12px; padding: 0; margin: 18px 0 22px; }
+.app-steps li { counter-increment: step; display: flex; align-items: flex-start; gap: 12px; font-size: 14.5px; line-height: 1.45; }
+.app-steps li::before { content: counter(step); flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; }
+.app-steps .ico { width: 18px; height: 18px; vertical-align: -3px; color: #0a84ff; }
 
 /* ---------- drawers ---------- */
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(20, 10, 25, .45); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 90; }

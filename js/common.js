@@ -28,6 +28,8 @@
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
     trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    iosShare: '<path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/>',
     filter: '<path d="M3 5h18M6 12h12M10 19h4"/>',
     users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
     phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/>',
@@ -338,6 +340,11 @@
     document.querySelectorAll(".main-nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === here));
   }
 
+  /* ---------- the shop as a home-screen app ---------- */
+  // opened from the home screen icon (no Safari address bar)
+  const isApp = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const onHome = /(^\/$|index\.html$)/.test(location.pathname);
+
   function renderHeader() {
     const el = document.getElementById("site-header");
     if (!el) return;
@@ -345,6 +352,7 @@
       <div class="announce"><div class="announce-track" id="announce-track">${C.announcements.map(announceItem).join("")}</div></div>
       <header class="site-header">
         <div class="container header-inner">
+          ${isApp && !onHome ? `<button class="icon-btn app-back" data-app-back aria-label="Back">${icon("back")}</button>` : ""}
           <button class="icon-btn menu-btn" data-open-menu aria-label="Open menu">${icon("menu")}</button>
           ${logoHtml()}
           <nav class="main-nav" aria-label="Main">
@@ -670,6 +678,7 @@
         </div>
         <div class="footer-bottom container">
           <span>© ${new Date().getFullYear()} ${esc(C.name)} · ${esc(C.domain)}</span>
+          ${isApp ? "" : `<button type="button" class="footer-app" data-get-app>📲 Get our app</button>`}
           <a href="policies.html">${esc(C.policyNote)}</a>
         </div>
       </footer>
@@ -753,6 +762,71 @@
     const a = e.target.closest('a[href*="wa.me/"]');
     if (a && !a.matches("[data-checkout], #wa-order")) track("whatsapp-chat", { page: location.pathname });
   });
+
+  // Android/Chrome offers a one-tap install; keep it for the "Get our app" link
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installPrompt = e; });
+
+  async function getApp() {
+    track("app-install-click");
+    if (installPrompt) {
+      const ask = installPrompt;
+      installPrompt = null; // Chrome allows one ask per page
+      try {
+        await ask.prompt();
+        if ((await ask.userChoice).outcome === "accepted") toast("Added to your home screen 💖");
+        return;
+      } catch (err) { /* Chrome said no: show the steps instead */ }
+    }
+    const ua = navigator.userAgent;
+    const inAppBrowser = /Instagram|FBAN|FBAV|FB_IAB/i.test(ua);
+    const iphone = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const steps = inAppBrowser
+      ? ["Tap <strong>•••</strong> at the top and choose <strong>Open in browser</strong> (or Open in Safari)", "Then tap <strong>📲 Get our app</strong> again, at the bottom of the page"]
+      : iphone
+        ? [`Tap the <strong>Share</strong> button ${icon("iosShare")} ${/CriOS/.test(ua) ? "next to the address bar" : "at the bottom of Safari"}`, "Scroll down and tap <strong>Add to Home Screen</strong>", "Tap <strong>Add</strong>. That's it! 🎉"]
+        : ["Open your browser menu <strong>⋮</strong>", "Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>", "Tap <strong>Install</strong>. That's it! 🎉"];
+    let modal = document.getElementById("app-modal");
+    if (!modal) {
+      document.body.insertAdjacentHTML("beforeend", `
+        <div class="modal" id="app-modal" role="dialog" aria-modal="true" aria-labelledby="app-title">
+          <div class="modal-box">
+            <button class="icon-btn modal-close" data-close-app aria-label="Close">${icon("close")}</button>
+            <img class="app-modal-icon" src="assets/icon-192.png" alt="">
+            <h3 id="app-title">Get our app</h3>
+            <p class="muted small">${esc(C.name)} on your home screen: new arrivals, your bag and wishlist, one tap away. Free, no download from an app store.</p>
+            <ol class="app-steps" id="app-steps"></ol>
+            <button class="btn btn-block" type="button" data-close-app>Got it</button>
+          </div>
+        </div>`);
+      modal = document.getElementById("app-modal");
+      modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-close-app]")) modal.classList.remove("open"); });
+    }
+    document.getElementById("app-steps").innerHTML = steps.map((t) => `<li>${t}</li>`).join("");
+    modal.classList.add("open");
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-get-app]")) getApp();
+    if (e.target.closest("[data-app-back]")) {
+      if (history.length > 1) history.back(); else location.href = "index.html";
+    }
+  });
+
+  if (isApp) {
+    // iPhone home-screen apps have no refresh: after 30+ minutes away, quietly load fresh products
+    let hiddenAt = 0;
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) hiddenAt = Date.now();
+      else if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000) location.reload();
+    });
+    window.addEventListener("load", () => setTimeout(() => {
+      if (!sessionStorage.getItem("tws_app_open")) { sessionStorage.setItem("tws_app_open", "1"); track("app-open"); }
+    }, 2000));
+  }
+
+  // keeps the site's own files on the phone (see sw.js); products always come fresh
+  if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 
   /* ---------- init ---------- */
   renderHeader();
