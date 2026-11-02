@@ -93,10 +93,10 @@
     }).join("");
 
     /* new arrivals & bestsellers */
-    const fresh = products.filter((p) => p.tag === "new").sort(inStockFirst);
+    const fresh = window.shopOrder(products.filter((p) => p.tag === "new")).sort(inStockFirst);
     $("#new-arrivals").innerHTML = (fresh.length ? fresh : products.slice(-8).reverse()).slice(0, 10).map(productCard).join("");
 
-    const best = products.filter((p) => p.tag === "bestseller").sort(inStockFirst);
+    const best = window.shopOrder(products.filter((p) => p.tag === "bestseller")).sort(inStockFirst);
     $("#bestsellers").innerHTML = (best.length ? best : products).slice(0, 8).map(productCard).join("");
 
     /* promo banners: photo = a "featured" product from that category (or its first product) */

@@ -195,7 +195,7 @@
         off: (a, b) => discount(b) - discount(a)
       };
       if (state.sort) list = list.slice().sort(sorters[state.sort]);
-      else if (!state.q) list = list.slice().sort((a, b) => b.inStock - a.inStock);
+      else if (!state.q) list = window.shopOrder(list).sort((a, b) => b.inStock - a.inStock);
 
       // Title & breadcrumb
       let title = "All Products";

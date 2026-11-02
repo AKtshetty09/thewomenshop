@@ -90,6 +90,16 @@
     return i >= 0 ? i : 100 + (parseFloat(s) || 0); // numeric sizes (32, 34…) after letter sizes
   };
   window.sortSizes = (arr) => arr.slice().sort((a, b) => sizeRank(a) - sizeRank(b));
+
+  // The shop's "Recommended" order. Once the owner arranges products in the admin ("Website order"),
+  // placed products follow that order and products added later come first, newest first.
+  // Until then: the sheet's order.
+  window.shopOrder = (list) => {
+    if (!list.some((p) => p.position)) return list.slice();
+    const at = new Map(list.map((p, i) => [p, i]));
+    return list.slice().sort((a, b) => (a.position ? 1 : 0) - (b.position ? 1 : 0) ||
+      (a.position && b.position ? a.position - b.position : at.get(b) - at.get(a)));
+  };
   // "Rust Orange " -> "rust orange" (to compare colours); "rust-orange" for links
   const colorKey = (c) => String(c || "").trim().toLowerCase().replace(/\s+/g, " ");
   window.colorKey = colorKey;
@@ -232,7 +242,9 @@
       inStock: vars.some((v) => v.inStock),
       tag: (b.tag || "").toLowerCase(),
       featured: yes(b.featured),
-      madeToOrder: def.madeToOrder
+      madeToOrder: def.madeToOrder,
+      // place in the shop's order, set in the admin's "Website order" (0 = not placed)
+      position: rows.map((r) => num(r.o.position)).find((n) => n > 0) || 0
     };
   }
 
