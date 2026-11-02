@@ -2162,4 +2162,7 @@
   });
 
   if (auth.url && auth.pin) start(); else showLogin();
+
+  // Kavya's Shop as a home-screen app: keeps the admin's own files on the phone (see admin-sw.js)
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/admin-sw.js", { scope: "/admin" }).catch(() => {});
 })();

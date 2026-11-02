@@ -684,7 +684,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
    Shop Admin (admin.html)
    ========================================================= */
 body.adm { background: var(--bg-soft); }
-.adm-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: #000; color: #fff; border-bottom: 1px solid rgba(201, 154, 60, .35); }
+.adm-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: calc(8px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); background: #000; color: #fff; border-bottom: 1px solid rgba(201, 154, 60, .35); }
 .adm-bar img { height: 40px; }
 .adm-title { font-weight: 600; letter-spacing: .5px; }
 .adm-logout { margin-left: auto; color: #ffb6cf; font-size: 13px; font-weight: 600; }
@@ -778,6 +778,10 @@ body.adm { background: var(--bg-soft); }
 .adm-tabs b[hidden] { display: none; }
 body.adm-has-tabs .adm-main { margin-bottom: 170px; }
 body.adm-has-tabs .adm-save { bottom: calc(60px + env(safe-area-inset-bottom)); }
+/* as a home-screen app on iPhone: stay clear of the home bar; messages float above the bottom bars */
+.adm-save { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+body.adm-has-tabs .adm-save { padding-bottom: 12px; }
+.adm .toast { bottom: calc(84px + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 32px); text-align: center; }
 
 /* dashboard */
 .adm-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 10px; margin: 16px 0 14px; }
