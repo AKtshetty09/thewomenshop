@@ -1004,3 +1004,109 @@ body.adm-bulking .adm-main { margin-bottom: 400px; }
   .adm-two { grid-template-columns: 1fr; }
   .adm-head h1 { font-size: 24px; }
 }
+
+/* =========================================================
+   Premium look (customer website only; the admin keeps its own style)
+   Ivory, espresso and champagne gold. Product photos sit in an arch,
+   like a palace window. Cormorant Garamond for headings, Jost for text.
+   ========================================================= */
+body:not(.adm) {
+  --primary: #2b2420; --primary-dark: #17120f; --primary-soft: #f3ede4;
+  --gold: #a8865a; --champagne: #d9c3a0; --sale: #8c4a3c;
+  --ink: #2b2420; --ink-2: #6b6158; --muted: #9a9087; --line: #e8e0d4;
+  --bg-soft: #f8f4ee; --wa: #2b2420; --radius: 0px;
+  --font: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --arch: 50% 50% 0 0 / 37.5% 37.5% 0 0; /* a true arch on a 3:4 photo */
+  background: #fffdf9; letter-spacing: .01em;
+}
+body:not(.adm) h1, body:not(.adm) h2, body:not(.adm) h3 { font-weight: 500; letter-spacing: .01em; }
+
+/* buttons: square, quiet, spaced capitals */
+body:not(.adm) .btn { border-radius: 0; padding: 15px 30px; background: var(--primary); font-size: 12px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
+body:not(.adm) .btn:hover { background: var(--primary-dark); transform: none; box-shadow: none; }
+body:not(.adm) .btn-outline { background: transparent; border: 1px solid var(--ink); color: var(--ink); }
+body:not(.adm) .btn-outline:hover { background: var(--ink); color: #fffdf9; }
+body:not(.adm) .btn-wa { background: var(--gold); }
+body:not(.adm) .btn-wa:hover { background: #8f7148; }
+body:not(.adm) .hero .btn, body:not(.adm) .promo .btn { background: transparent; border: 1px solid #fff; color: #fff; }
+body:not(.adm) .hero .btn:hover, body:not(.adm) .promo .btn:hover { background: #fff; color: var(--ink); }
+
+/* the arch: every product photo */
+body:not(.adm) .card { border-radius: 0; background: transparent; }
+body:not(.adm) .card:hover { box-shadow: none; transform: none; }
+body:not(.adm) .card-media, body:not(.adm) .skeleton, body:not(.adm) .cat-img, body:not(.adm) .main-img,
+body:not(.adm) .vp-img, body:not(.adm) .thumbs button { border-radius: var(--arch); }
+body:not(.adm) .cat-img { box-shadow: none; background: var(--bg-soft); }
+body:not(.adm) .card-media { background: var(--bg-soft); }
+/* tags and the heart sit at the bottom of the arch */
+body:not(.adm) .badge { top: auto; bottom: 12px; left: 50%; transform: translateX(-50%); border-radius: 0; padding: 5px 12px; background: rgba(255, 253, 249, .94); color: var(--ink); font-size: 9.5px; font-weight: 500; letter-spacing: .24em; white-space: nowrap; }
+body:not(.adm) .badge-gold { background: var(--gold); color: #fff; }
+body:not(.adm) .badge-dark { background: rgba(43, 36, 32, .82); color: #fff; }
+body:not(.adm) .wish-btn { top: auto; bottom: 10px; right: 10px; width: 34px; height: 34px; box-shadow: none; background: rgba(255, 253, 249, .9); }
+body:not(.adm) .wish-btn:hover, body:not(.adm) .wish-btn.active { color: var(--sale); }
+body:not(.adm) .wish-btn.active .ico, body:not(.adm) .btn-wish.active .ico { fill: var(--sale); }
+body:not(.adm) .btn-wish.active { background: transparent; border-color: var(--sale); color: var(--sale); }
+
+/* product cards: centred, serif names */
+body:not(.adm) .card-body { padding: 14px 4px 18px; text-align: center; }
+body:not(.adm) .card-cat { font-size: 10px; font-weight: 500; letter-spacing: .24em; color: var(--muted); }
+body:not(.adm) .card-title { margin: 6px 0; font-family: var(--font-display); font-size: 18.5px; font-weight: 500; }
+body:not(.adm) .price { justify-content: center; font-size: 14px; letter-spacing: .04em; }
+body:not(.adm) .price strong { font-weight: 500; }
+body:not(.adm) .price .off, body:not(.adm) .pdp-price .off { color: var(--sale); font-weight: 400; }
+body:not(.adm) .card-colors { justify-content: center; }
+
+/* product page */
+body:not(.adm) .pdp-info h1 { font-size: clamp(32px, 3.4vw, 44px); line-height: 1.1; }
+body:not(.adm) .pdp-price strong { font-size: 26px; font-weight: 500; letter-spacing: .02em; }
+body:not(.adm) .pdp-price s { font-size: 16px; }
+body:not(.adm) .pdp-price .off { font-size: 15px; }
+body:not(.adm) .tax-note { color: var(--muted); font-weight: 400; }
+body:not(.adm) .opt-head h4 { font-size: 11px; font-weight: 500; letter-spacing: .24em; }
+body:not(.adm) .opt-head a { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; font-weight: 400; }
+body:not(.adm) .sizes button { min-width: 48px; height: 48px; border-radius: 0; border: 1px solid var(--line); font-weight: 400; letter-spacing: .06em; }
+body:not(.adm) .sizes button:hover { border-color: var(--ink); color: var(--ink); }
+body:not(.adm) .sizes button.active { background: var(--ink); border-color: var(--ink); color: #fffdf9; }
+body:not(.adm) .colors-pick button.active { background: transparent; border-color: var(--ink); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+body:not(.adm) .vp-img { border: 1px solid var(--line); }
+body:not(.adm) .vp.active .vp-img { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+body:not(.adm) .thumbs button.active, body:not(.adm) .thumbs button:hover { border-color: var(--ink); }
+body:not(.adm) .gal-arrow:hover { background: var(--ink); }
+
+/* section titles with a small gold line */
+body:not(.adm) .section-head h2 { font-size: clamp(32px, 4vw, 46px); }
+body:not(.adm) .section-head h2::after { content: ""; display: block; width: 46px; height: 1px; margin-top: 12px; background: var(--gold); }
+body:not(.adm) .link-arrow { color: var(--ink); font-size: 11.5px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
+
+/* everything else: square, hairlines, champagne details */
+body:not(.adm) .insta-grid a, body:not(.adm) .promo, body:not(.adm) .deal, body:not(.adm) .deal-chips a, body:not(.adm) .review, body:not(.adm) .review img,
+body:not(.adm) .bag-item img, body:not(.adm) .order, body:not(.adm) .order-items img, body:not(.adm) .policy-card, body:not(.adm) .pdp-promises,
+body:not(.adm) .pay-card, body:not(.adm) .modal-box, body:not(.adm) .field, body:not(.adm) .select, body:not(.adm) .search, body:not(.adm) .search-suggest,
+body:not(.adm) .size-chips span, body:not(.adm) .pill, body:not(.adm) .colors span, body:not(.adm) .policy-nav a, body:not(.adm) .status,
+body:not(.adm) .share-btn, body:not(.adm) .notify-btn, body:not(.adm) .pay-row button, body:not(.adm) .gal-count, body:not(.adm) .shown-in,
+body:not(.adm) .card-shown, body:not(.adm) .stock-out, body:not(.adm) .mto-note, body:not(.adm) .contact-list > *, body:not(.adm) .orders-note,
+body:not(.adm) .pay-sum, body:not(.adm) .pay-bank, body:not(.adm) .policy-note { border-radius: 0; }
+body:not(.adm) .policy-note { background: var(--bg-soft); border: 1px solid var(--line); color: var(--ink-2); }
+body:not(.adm) .policy-note a { color: var(--ink); }
+body:not(.adm) .notify-btn { border-color: var(--ink); background: transparent; color: var(--ink) !important; }
+body:not(.adm) .stock-out, body:not(.adm) .mto-note { background: var(--primary-soft); color: var(--ink); }
+body:not(.adm) .field:focus { border-color: var(--ink); box-shadow: none; }
+body:not(.adm) .promise-ico { background: transparent; border: 1px solid var(--champagne); color: var(--gold); }
+body:not(.adm) .announce { background: #17120f; color: var(--champagne); letter-spacing: .08em; }
+body:not(.adm) .announce-track a:hover { color: #fff; }
+body:not(.adm) .eyebrow, body:not(.adm) .hero h1 em, body:not(.adm) .main-nav .nav-new, body:not(.adm) .logo-light span, body:not(.adm) .deal h2 span { color: var(--champagne); }
+body:not(.adm) .eyebrow { letter-spacing: .32em; font-weight: 400; }
+body:not(.adm) .hero h1, body:not(.adm) .hero h1 em { font-weight: 500; }
+body:not(.adm) .icon-btn:hover, body:not(.adm) .site-header .icon-btn:hover, body:not(.adm) .site-footer a:hover { color: var(--champagne); }
+body:not(.adm) .icon-btn .count { background: var(--gold); }
+body:not(.adm) .main-nav a::after { background: var(--champagne); height: 1px; }
+body:not(.adm) .search:focus-within { border-color: var(--gold); }
+body:not(.adm) .socials a:hover { background: var(--gold); border-color: var(--gold); }
+body:not(.adm) .deal { background: linear-gradient(120deg, #17120f, #3a2f28); }
+body:not(.adm) .wa-float { background: var(--ink); color: var(--champagne); box-shadow: 0 0 0 1px var(--gold), 0 10px 24px rgba(0, 0, 0, .25); }
+body:not(.adm) .slide::after { background: linear-gradient(90deg, rgba(23, 18, 15, .7) 0%, rgba(23, 18, 15, .28) 50%, transparent 80%); }
+@media (max-width: 640px) {
+  body:not(.adm) .slide::after { background: linear-gradient(0deg, rgba(23, 18, 15, .82) 10%, rgba(23, 18, 15, .15) 70%); }
+  body:not(.adm) .card-title { font-size: 16.5px; }
+}
