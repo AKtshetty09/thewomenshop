@@ -117,8 +117,9 @@ window.SHOP_CONFIG = {
   // Promises shown on the home page and product page. Edit to match your policies.
   promises: [
     { icon: "shield", title: "Exactly what you see", text: "Real photos, no surprises" },
-    { icon: "chat", title: "Order on WhatsApp", text: "Quick replies, personal help with sizes" },
+    // "wa" = tapping this opens WhatsApp with that message ready to send
+    { icon: "chat", title: "Order on WhatsApp", text: "Quick replies, personal help with sizes", wa: "Hi The Women Shop! I'd like to order. Could you help me with sizes and availability?" },
     { icon: "truck", title: "Delivery in {shipping}", text: "Shipped all over India from Ongole, AP" },
-    { icon: "refresh", title: "Exchange for damaged items", text: "Just share your unboxing video" }
+    { icon: "refresh", title: "Exchange for damaged items", text: "Just share your unboxing video", wa: "Hi The Women Shop! I received a damaged item and would like to exchange it.\n\nOrder ID: \nItem: \n\nI'm sharing my unboxing video here:" }
   ]
 };

@@ -94,7 +94,7 @@
           ${C.policyNote ? `<p class="policy-note">${icon("info")} <span>${esc(C.policyNote)} · <a href="policies.html">Details</a></span></p>` : ""}
 
           <div class="pdp-promises">
-            ${C.promises.map((x) => `<div class="promise"><div class="promise-ico">${icon(x.icon)}</div><div><h4>${esc(fillText(x.title))}</h4><p>${esc(fillText(x.text))}</p></div></div>`).join("")}
+            ${C.promises.map((x) => `<${x.wa ? `a class="promise promise-link" href="${esc(waLink(x.wa))}" target="_blank" rel="noopener"` : 'div class="promise"'}><div class="promise-ico">${icon(x.icon)}</div><div><h4>${esc(fillText(x.title))}</h4><p>${esc(fillText(x.text))}</p></div></${x.wa ? "a" : "div"}>`).join("")}
           </div>
 
           <div class="details">
