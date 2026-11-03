@@ -77,7 +77,7 @@
           <div class="opt-block">
             <div class="opt-head">
               <h4>${p.sizes.length === 1 ? "Size" : "Select Size"}</h4>
-              <a href="${waLink(`Hi! Can you help me with the size for ${p.name} (${p.id})?`)}" target="_blank" rel="noopener">Need size help?</a>
+              <a href="assets/size-chart.jpg" id="size-chart">Size chart</a>
             </div>
             <div class="sizes" id="sizes" role="radiogroup" aria-label="Size">
               ${p.sizes.map((s) => `<button type="button" data-size="${esc(s)}" role="radio">${esc(s)}</button>`).join("")}
@@ -161,6 +161,13 @@
     });
     gallery.addEventListener("mouseleave", () => { const img = $("#main-img"); if (img) img.style.transform = ""; });
     $("#lightbox").addEventListener("click", () => $("#lightbox").classList.remove("open"));
+    // "Size chart": the chart picture in the same full-screen viewer (tap anywhere to close)
+    $("#size-chart")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      $("#lightbox img").src = "assets/size-chart.jpg";
+      $("#lightbox").classList.add("open");
+      track("size-chart-open", { product: p.id });
+    });
 
     const joinAnd = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`);
     const inColour = (v) => (multi && v.color ? ` in ${v.color}` : "");
@@ -176,9 +183,7 @@
       $("#price").innerHTML = `<strong>${money(v.price)}</strong>${off ? `<s>MRP ${money(v.mrp)}</s><span class="off">(${off}% OFF)</span>` : ""}`;
       $("#stock-notes").innerHTML =
         (v.madeToOrder ? `<p class="mto-note">${icon("info")} <span>${esc(C.madeToOrderText)}</span></p>` : "") +
-        (v.inStock ? "" : `<p class="stock-out">${multi && p.inStock
-          ? `${esc(v.color)} is sold out right now 😔 Pick another colour, or tap <strong>Notify me</strong> and we'll message you when it's back.`
-          : "This style is sold out right now 😔 Tap <strong>Notify me</strong> and we'll message you as soon as it's back."}</p>`);
+        "";
 
       // colour buttons
       if ($("#colors")) {
@@ -205,11 +210,9 @@
         });
         const soldOut = v.made.filter((s) => !v.available.includes(s)); // made in this colour, but run out
         const note = $("#size-note");
-        note.hidden = !v.inStock || (!soldOut.length && v.made.length === p.sizes.length);
-        if (!note.hidden && soldOut.length) {
-          note.innerHTML = `<span>${soldOut.length === 1 ? "Size" : "Sizes"} <strong>${esc(joinAnd(soldOut))}</strong> ${soldOut.length === 1 ? "is" : "are"} sold out${esc(inColour(v))} 😔 Want ${soldOut.length === 1 ? "it" : "one"}? We'll let you know when it's back.</span>
-            <a class="notify-btn" href="${notifyLink(v, soldOut)}" target="_blank" rel="noopener">${icon("whatsapp")} Notify me on WhatsApp</a>`;
-        } else if (!note.hidden) {
+        // only a short note when this colour isn't made in every size (sold-out sizes are just crossed out)
+        note.hidden = !v.inStock || soldOut.length > 0 || v.made.length === p.sizes.length;
+        if (!note.hidden) {
           note.innerHTML = `<span>${esc(v.color || "This style")} comes in ${v.made.length === 1 ? "size" : "sizes"} <strong>${esc(joinAnd(v.made))}</strong>.</span>`;
         }
         $("#size-error").hidden = true;
