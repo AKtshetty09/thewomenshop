@@ -1,5 +1,5 @@
 (function () {
-  const { esc, icon, productCard, igProfile, settingsReady, fillText, Recent, reviewCard } = window.TWS;
+  const { esc, icon, productCard, igProfile, settingsReady, fillText, Recent, reviewCard, waLink } = window.TWS;
   const C = window.SHOP_CONFIG;
   const $ = (s) => document.querySelector(s);
 
@@ -65,11 +65,12 @@
 
   /* promises */
   function renderPromises() {
+    // a promise with a "wa" message is a link that opens WhatsApp; the others are plain
     $("#promises").innerHTML = C.promises.map((p) => `
-      <div class="promise">
+      <${p.wa ? `a class="promise promise-link" href="${esc(waLink(p.wa))}" target="_blank" rel="noopener"` : 'div class="promise"'}>
         <div class="promise-ico">${icon(p.icon)}</div>
         <div><h4>${esc(fillText(p.title))}</h4><p>${esc(fillText(p.text))}</p></div>
-      </div>`).join("");
+      </${p.wa ? "a" : "div"}>`).join("");
   }
 
   /* skeletons while loading */
