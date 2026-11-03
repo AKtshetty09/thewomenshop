@@ -320,6 +320,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 .opt-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .opt-head h4 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
 .opt-head a { color: var(--primary); font-size: 13px; font-weight: 600; }
+.opt-head #size-chart { cursor: zoom-in; }
 .sizes { display: flex; flex-wrap: wrap; gap: 10px; }
 .sizes button { min-width: 52px; height: 52px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); font-weight: 600; font-size: 14px; transition: .2s; }
 .sizes button:hover { border-color: var(--primary); color: var(--primary); }
@@ -455,7 +456,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
   .thumbs button { width: 70px; }
 }
 @media (max-width: 640px) {
-  :root { --header-h: 60px; }
+  :root { --header-h: 60px; --hdr-hide: 50px; }
   .container { width: calc(100% - 28px); }
   .header-inner { gap: 10px; flex-wrap: wrap; height: auto; padding: 8px 0; }
   .logo { font-size: 21px; margin-right: auto; }
@@ -494,7 +495,15 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
   .site-footer .f-col h4 { margin: 0; }
   .f-col[open] { padding-bottom: 12px; }
   .footer-bottom { justify-content: center; text-align: center; }
-  .actions { position: sticky; bottom: 0; background: #fff; z-index: 5; }
+  .actions { gap: 10px; padding: 16px 0; }
+  .actions .btn { padding: 12px 8px; font-size: 11px; letter-spacing: .12em; gap: 6px; }
+  .actions .btn .ico { width: 16px; height: 16px; }
+  /* header: smaller, and only the logo row stays on screen while scrolling (the search bar scrolls away) */
+  .announce { font-size: 11.5px; }
+  .header-inner { gap: 8px; padding: 6px 0; }
+  .logo-has-img img { height: 42px; }
+  .search { height: 36px; margin: 0 0 4px; }
+  .site-header { top: calc(-1 * var(--hdr-hide)); }
   .wa-float { width: 50px; height: 50px; right: 14px; bottom: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
