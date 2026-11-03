@@ -6,7 +6,7 @@
    - If storage on the phone fails for any reason, it simply uses the internet.
    EMERGENCY OFF SWITCH: set OFF = true and publish. Every phone removes this helper on its next visit. */
 const OFF = false;
-const CACHE = "tws-site-v1";
+const CACHE = "tws-site-v2";
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (e) => {
@@ -44,7 +44,8 @@ const save = (cache, key, res) => cache.put(key, res).catch(() => {});
 // pages: online (checked for changes every time); no internet → the offline page
 async function page(req) {
   try {
-    return await fetch(req);
+    // always ask the server whether the page changed (skips the phone's 10-minute copy)
+    return await fetch(new Request(req.url, { cache: "no-cache", credentials: "same-origin" }));
   } catch (err) {
     const cache = await caches.open(CACHE);
     return (await cache.match(OFFLINE).catch(() => null)) || Response.error();
