@@ -1007,19 +1007,15 @@ body.adm-bulking .adm-main { margin-bottom: 400px; }
 
 /* =========================================================
    Premium look (customer website only; the admin keeps its own style)
-   Ivory, espresso and champagne gold. Cormorant Garamond for headings, Jost for text.
-   Product photos keep their original rounded shape.
+   Ivory, espresso and champagne gold. Fonts and photo shapes stay as they were.
    ========================================================= */
 body:not(.adm) {
   --primary: #2b2420; --primary-dark: #17120f; --primary-soft: #f3ede4;
   --gold: #a8865a; --champagne: #d9c3a0; --sale: #8c4a3c;
   --ink: #2b2420; --ink-2: #6b6158; --muted: #9a9087; --line: #e8e0d4;
   --bg-soft: #f8f4ee; --radius: 14px;
-  --font: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Cormorant Garamond", Georgia, serif;
   background: #fffdf9; letter-spacing: .01em;
 }
-body:not(.adm) h1, body:not(.adm) h2, body:not(.adm) h3 { font-weight: 500; letter-spacing: .01em; }
 
 /* buttons: square, quiet, spaced capitals */
 body:not(.adm) .btn { border-radius: 0; padding: 15px 30px; background: var(--primary); font-size: 12px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
@@ -1028,6 +1024,8 @@ body:not(.adm) .btn-outline { background: transparent; border: 1px solid var(--i
 body:not(.adm) .btn-outline:hover { background: var(--ink); color: #fffdf9; }
 body:not(.adm) .btn-wa { background: var(--gold); }
 body:not(.adm) .btn-wa:hover { background: #8f7148; }
+body:not(.adm) .btn-insta { background: linear-gradient(90deg, #f58529, #dd2a7b, #8134af); }
+body:not(.adm) .btn-insta:hover { background: linear-gradient(90deg, #e0761e, #c41f6b, #6f2a99); }
 body:not(.adm) .hero .btn, body:not(.adm) .promo .btn { background: transparent; border: 1px solid #fff; color: #fff; }
 body:not(.adm) .hero .btn:hover, body:not(.adm) .promo .btn:hover { background: #fff; color: var(--ink); }
 
@@ -1044,14 +1042,12 @@ body:not(.adm) .btn-wish.active { background: transparent; border-color: var(--s
 /* product cards: centred, serif names */
 body:not(.adm) .card-body { padding: 14px 4px 18px; text-align: center; }
 body:not(.adm) .card-cat { font-size: 10px; font-weight: 500; letter-spacing: .24em; color: var(--muted); }
-body:not(.adm) .card-title { margin: 6px 0; font-family: var(--font-display); font-size: 18.5px; font-weight: 500; }
 body:not(.adm) .price { justify-content: center; font-size: 14px; letter-spacing: .04em; }
 body:not(.adm) .price strong { font-weight: 500; }
 body:not(.adm) .price .off, body:not(.adm) .pdp-price .off { color: var(--sale); font-weight: 400; }
 body:not(.adm) .card-colors { justify-content: center; }
 
 /* product page */
-body:not(.adm) .pdp-info h1 { font-size: clamp(32px, 3.4vw, 44px); line-height: 1.1; }
 body:not(.adm) .pdp-price strong { font-size: 26px; font-weight: 500; letter-spacing: .02em; }
 body:not(.adm) .pdp-price s { font-size: 16px; }
 body:not(.adm) .pdp-price .off { font-size: 15px; }
@@ -1067,7 +1063,6 @@ body:not(.adm) .thumbs button.active, body:not(.adm) .thumbs button:hover { bord
 body:not(.adm) .gal-arrow:hover { background: var(--ink); }
 
 /* section titles with a small gold line */
-body:not(.adm) .section-head h2 { font-size: clamp(32px, 4vw, 46px); }
 body:not(.adm) .section-head h2::after { content: ""; display: block; width: 46px; height: 1px; margin-top: 12px; background: var(--gold); }
 body:not(.adm) .link-arrow { color: var(--ink); font-size: 11.5px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
 
@@ -1088,7 +1083,6 @@ body:not(.adm) .announce { background: #17120f; color: var(--champagne); letter-
 body:not(.adm) .announce-track a:hover { color: #fff; }
 body:not(.adm) .eyebrow, body:not(.adm) .hero h1 em, body:not(.adm) .main-nav .nav-new, body:not(.adm) .logo-light span, body:not(.adm) .deal h2 span { color: var(--champagne); }
 body:not(.adm) .eyebrow { letter-spacing: .32em; font-weight: 400; }
-body:not(.adm) .hero h1, body:not(.adm) .hero h1 em { font-weight: 500; }
 body:not(.adm) .icon-btn:hover, body:not(.adm) .site-header .icon-btn:hover, body:not(.adm) .site-footer a:hover { color: var(--champagne); }
 body:not(.adm) .icon-btn .count { background: var(--gold); }
 body:not(.adm) .main-nav a::after { background: var(--champagne); height: 1px; }
@@ -1098,5 +1092,4 @@ body:not(.adm) .deal { background: linear-gradient(120deg, #17120f, #3a2f28); }
 body:not(.adm) .slide::after { background: linear-gradient(90deg, rgba(23, 18, 15, .7) 0%, rgba(23, 18, 15, .28) 50%, transparent 80%); }
 @media (max-width: 640px) {
   body:not(.adm) .slide::after { background: linear-gradient(0deg, rgba(23, 18, 15, .82) 10%, rgba(23, 18, 15, .15) 70%); }
-  body:not(.adm) .card-title { font-size: 16.5px; }
 }
