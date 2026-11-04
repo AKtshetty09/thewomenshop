@@ -499,6 +499,9 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
   .actions .btn { padding: 12px 8px; font-size: 11px; letter-spacing: .12em; gap: 6px; }
   .actions .btn .ico { width: 16px; height: 16px; }
   /* header: smaller, and only the logo row stays on screen while scrolling (the search bar scrolls away) */
+  .page-head { padding: 14px 0 0; }
+  .crumbs { margin-bottom: 4px; }
+  .pdp { gap: 14px; padding: 8px 0 40px; }
   .announce { font-size: 11.5px; }
   .header-inner { gap: 8px; padding: 6px 0; }
   .logo-has-img img { height: 42px; }
